@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="theme-color" content="#09090b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>MIMO Control Tuner</title>
+<link rel="manifest" href="manifest.json">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg0:#09090b;--bg1:#18181b;--bg2:#27272a;--bg3:#3f3f46;--t0:#f4f4f5;--t1:#e4e4e7;--t2:#a1a1aa;--acc:#f59e0b;--grn:#22c55e;--amb:#fbbf24;--red:#ef4444;--org:#f97316;--brd:#3f3f46;--r:6px}
+html,body{height:100%;overflow:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg0);color:var(--t1);line-height:1.4}
+.app{display:flex;flex-direction:column;height:100vh}
+header{display:flex;align-items:center;padding:8px 16px;background:var(--bg1);border-bottom:1px solid var(--brd);gap:10px;flex-shrink:0}
+header svg{width:28px;height:28px}
+header h1{font-size:16px;font-weight:700;color:var(--t0)}
+header .sub{font-size:11px;color:var(--t2)}
+.nav{margin-left:auto;display:flex;gap:6px}
+.nav a{font-size:12px;padding:4px 10px;border-radius:var(--r);text-decoration:none;color:var(--t2);border:1px solid var(--brd);transition:all .15s}
+.nav a:hover{color:var(--t0);border-color:var(--t2)}
+.nav a.act{color:var(--acc);border-color:var(--acc);font-weight:700}
+.main{display:flex;flex:1;overflow:hidden}
+.sidebar{width:340px;min-width:340px;background:var(--bg1);border-right:1px solid var(--brd);overflow-y:auto;padding:8px;flex-shrink:0}
+.sidebar::-webkit-scrollbar{width:6px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px}
+.pnl{background:var(--bg2);border-radius:var(--r);margin-bottom:6px;overflow:hidden}
+.pnl-h{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;cursor:pointer;user-select:none}
+.pnl-h:hover{background:var(--bg3)}
+.pnl-h h3{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--t2)}
+.pnl-h .arr{font-size:10px;color:var(--t2);transition:transform .2s}
+.pnl-h.collapsed .arr{transform:rotate(-90deg)}
+.pnl-b{padding:8px 12px;border-top:1px solid var(--brd)}
+.pnl-b.hide{display:none}
+.pr{display:flex;align-items:center;margin-bottom:6px;gap:6px}
+.pr label{width:70px;font-size:12px;color:var(--t2);flex-shrink:0}
+.pr input[type=number],.pr input[type=text],.pr select{flex:1;background:var(--bg1);border:1px solid var(--brd);border-radius:4px;padding:4px 6px;color:var(--t0);font-size:12px;font-family:'SF Mono',Menlo,monospace}
+.pr input:focus,.pr select:focus{outline:none;border-color:var(--acc)}
+.pr select{cursor:pointer}
+.dims{font-size:11px;color:var(--t2);padding:4px 0;font-family:'SF Mono',Menlo,monospace}
+.dims.err{color:var(--red)}
+.tgl{position:relative;width:32px;height:18px;background:var(--bg3);border-radius:9px;cursor:pointer;transition:background .2s;flex-shrink:0}
+.tgl.on{background:var(--acc)}
+.tgl::after{content:'';position:absolute;width:14px;height:14px;background:#fff;border-radius:50%;top:2px;left:2px;transition:transform .2s}
+.tgl.on::after{transform:translateX(14px)}
+.dof-pnl{border:1px solid var(--brd);border-radius:4px;margin-bottom:6px;overflow:hidden}
+.dof-h{display:flex;align-items:center;gap:6px;padding:6px 8px;cursor:pointer;font-size:12px}
+.dof-h .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.dof-h span{flex:1;color:var(--t2);font-weight:600}
+.dof-h .arr{font-size:10px;color:var(--t2)}
+.dof-b{padding:6px 8px}
+.dof-b.hide{display:none}
+/* Matrix bracket notation */
+.mat-row{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.mat-lbl{font-size:14px;font-weight:700;color:var(--t0);font-style:italic;min-width:12px;text-align:right;font-family:'Times New Roman',Georgia,serif}
+.mat-eq{font-size:14px;color:var(--t2)}
+.mat-wrap{position:relative;padding:6px 10px}
+.mat-wrap::before,.mat-wrap::after{content:'';position:absolute;top:0;bottom:0;width:5px;border:1.5px solid var(--t2)}
+.mat-wrap::before{left:0;border-right:none;border-radius:3px 0 0 3px}
+.mat-wrap::after{right:0;border-left:none;border-radius:0 3px 3px 0}
+.mat-g{display:grid;gap:3px}
+.mat-g input{width:52px;text-align:center;background:var(--bg1);border:1px solid var(--brd);border-radius:3px;padding:3px 2px;color:var(--t0);font-size:12px;font-family:'SF Mono',Menlo,monospace}
+.mat-g input:focus{outline:none;border-color:var(--acc)}
+.dim-row{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+.dim-row label{font-size:11px;color:var(--t2)}
+.dim-row select{width:44px;background:var(--bg1);border:1px solid var(--brd);border-radius:4px;padding:3px 4px;color:var(--t0);font-size:12px;font-family:'SF Mono',Menlo,monospace;cursor:pointer}
+.dim-row select:focus{outline:none;border-color:var(--acc)}
+/* Plot area */
+.plot-area{flex:1;display:flex;flex-direction:column;padding:8px;gap:6px;overflow:hidden;min-width:0}
+.tabs{display:flex;gap:2px;flex-shrink:0}
+.tab{padding:7px 14px;border:none;border-radius:var(--r) var(--r) 0 0;background:var(--bg2);color:var(--t2);font-size:12px;cursor:pointer;transition:all .15s;font-weight:500}
+.tab.act{background:var(--bg1);color:var(--acc);font-weight:700}
+.tab:hover:not(.act){background:var(--bg3)}
+.mbar{display:flex;gap:12px;padding:6px 10px;background:var(--bg1);border-radius:var(--r);font-size:11px;flex-wrap:wrap;flex-shrink:0}
+.met{display:flex;gap:4px;align-items:center}
+.met-l{color:var(--t2)}
+.met-v{color:var(--t0);font-weight:700;font-family:'SF Mono',Menlo,monospace}
+.met-v.g{color:var(--grn)}.met-v.w{color:var(--amb)}.met-v.b{color:var(--red)}
+.charts{flex:1;display:flex;flex-direction:column;gap:6px;min-height:0}
+.chwrap{flex:1;position:relative;background:var(--bg1);border-radius:var(--r);min-height:0;overflow:hidden}
+.chwrap canvas{position:absolute;top:0;left:0;width:100%!important;height:100%!important}
+.chwrap.hide{display:none}
+.legend{display:flex;gap:10px;padding:4px 8px;flex-wrap:wrap;flex-shrink:0}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t2)}
+.leg-item .swatch{width:12px;height:3px;border-radius:2px}
+@media(max-width:900px){.main{flex-direction:column}.sidebar{width:100%;min-width:auto;max-height:40vh;border-right:none;border-bottom:1px solid var(--brd)}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+<svg viewBox="0 0 512 512"><rect width="512" height="512" rx="64" fill="#09090b"/><path d="M80 350Q160 350 200 200Q240 50 280 250Q320 400 400 180L430 180" stroke="#f59e0b" stroke-width="16" fill="none" stroke-linecap="round"/></svg>
+<div><h1>MIMO Control Tuner</h1><div class="sub">Decoupled State-Space &middot; Per-DoF PID</div></div>
+<nav class="nav"><a href="index.html">SISO</a><a href="mimo.html" class="act">MIMO</a></nav>
+</header>
+<div class="main">
+<aside class="sidebar">
+
+<!-- Simulation Settings -->
+<div class="pnl"><div class="pnl-h" onclick="tP(this)"><h3>Simulation</h3><span class="arr">&#9660;</span></div>
+<div class="pnl-b">
+<div class="pr"><label>T_end (s)</label><input type="number" id="simTend" value="10" min="0.1" step="1"></div>
+<div class="pr"><label>f_min (Hz)</label><input type="number" id="simFmin" value="0.001" min="0.0001" step="0.001"></div>
+<div class="pr"><label>f_max (Hz)</label><input type="number" id="simFmax" value="200" min="0.1" step="10"></div>
+</div></div>
+
+<!-- State-Space Plant -->
+<div class="pnl"><div class="pnl-h" onclick="tP(this)"><h3>State-Space Plant</h3><span class="arr">&#9660;</span></div>
+<div class="pnl-b">
+<div class="pr"><label>Example</label><select id="ssExample"><option value="">-- Custom --</option><option value="2dof1" selected>2-DoF 1st Order</option><option value="siso2">SISO 2nd Order</option><option value="3dof">3-DoF 1st Order</option></select></div>
+<div class="dim-row">
+<label>n</label><select id="ssN"><option>1</option><option selected>2</option><option>3</option></select>
+<label>m</label><select id="ssM"><option>1</option><option selected>2</option><option>3</option></select>
+<label>p</label><select id="ssP"><option>1</option><option selected>2</option><option>3</option></select>
+</div>
+<div id="matSection"></div>
+<div class="dims" id="ssDims"></div>
+</div></div>
+
+<!-- Per-DoF PIDs (dynamic) -->
+<div class="pnl"><div class="pnl-h" onclick="tP(this)"><h3>PID Controllers</h3><span class="arr">&#9660;</span></div>
+<div class="pnl-b" id="pidBody"></div>
+</div>
+
+<!-- Excitation -->
+<div class="pnl"><div class="pnl-h" onclick="tP(this)"><h3>Excitation</h3><span class="arr">&#9660;</span></div>
+<div class="pnl-b">
+<div class="pr"><label>Channel</label><select id="excCh"></select></div>
+<div class="pr"><label>Amplitude</label><input type="number" id="excAmp" value="1" step="0.1"></div>
+</div></div>
+
+<!-- Time Simulator -->
+<div class="pnl"><div class="pnl-h" onclick="tP(this)"><h3>Time Simulator</h3><span class="arr">&#9660;</span></div>
+<div class="pnl-b">
+<div class="pr"><label>Signal</label><select id="simSigType"><option value="step">Step</option><option value="ramp">Ramp</option><option value="sine">Sine</option><option value="square">Square</option><option value="sawtooth">Sawtooth</option></select></div>
+<div class="pr"><label id="lblSigAmp">Amplitude</label><input type="number" id="simSigAmp" value="1" step="0.1"></div>
+<div class="pr" id="rowSigFreq" style="display:none"><label>Freq (Hz)</label><input type="number" id="simSigFreq" value="1" min="0.001" step="0.1"></div>
+<div class="pr" id="rowSigDelay"><label>Delay (s)</label><input type="number" id="simSigDelay" value="0" min="0" step="0.1"></div>
+<div class="pr" id="rowSigDuty" style="display:none"><label>Duty (%)</label><input type="number" id="simSigDuty" value="50" min="1" max="99" step="5"></div>
+<div class="pr"><label>Offset</label><input type="number" id="simSigOff" value="0" step="0.1"></div>
+<div class="pr"><label>x&#x2080;</label><input type="text" id="simX0" value="0" placeholder="0, 0, ..."></div>
+</div></div>
+
+</aside>
+<main class="plot-area">
+<div class="tabs">
+<button class="tab act" data-tab="step" onclick="setTab('step',this)">Step Response</button>
+<button class="tab" data-tab="impulse" onclick="setTab('impulse',this)">Impulse Response</button>
+<button class="tab" data-tab="bode" onclick="setTab('bode',this)">Bode Plot</button>
+<button class="tab" data-tab="sim" onclick="setTab('sim',this)">Simulator</button>
+</div>
+<div class="mbar" id="mbar"></div>
+<div class="legend" id="legendBar"></div>
+<div class="charts">
+<div class="chwrap" id="wStep"><canvas id="cStep"></canvas></div>
+<div class="chwrap hide" id="wImpulse"><canvas id="cImpulse"></canvas></div>
+<div class="chwrap hide" id="wMag"><canvas id="cMag"></canvas></div>
+<div class="chwrap hide" id="wPhase"><canvas id="cPhase"></canvas></div>
+<div class="chwrap hide" id="wSim"><canvas id="cSim"></canvas></div>
+</div>
+</main>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+/* ========== COMPLEX ARITHMETIC ========== */
+const Cx={
+  n:(r,i=0)=>({re:r,im:i}),
+  add:(a,b)=>({re:a.re+b.re,im:a.im+b.im}),
+  sub:(a,b)=>({re:a.re-b.re,im:a.im-b.im}),
+  mul:(a,b)=>({re:a.re*b.re-a.im*b.im,im:a.re*b.im+a.im*b.re}),
+  div:(a,b)=>{const d=b.re*b.re+b.im*b.im;return d<1e-30?Cx.n(0):({re:(a.re*b.re+a.im*b.im)/d,im:(a.im*b.re-a.re*b.im)/d})},
+  abs:a=>Math.hypot(a.re,a.im),
+  arg:a=>Math.atan2(a.im,a.re),
+  scale:(a,s)=>({re:a.re*s,im:a.im*s})
+};
+
+/* ========== MATRIX UI ========== */
+const $=id=>document.getElementById(id);
+
+function buildMatGrids(){
+  const n=+$('ssN').value,m=+$('ssM').value,p=+$('ssP').value;
+  const saved={};
+  document.querySelectorAll('#matSection input').forEach(el=>{saved[el.id]=+el.value;});
+  let h='';
+  h+=matHTML('A','a',n,n,saved);
+  h+=matHTML('B','b',n,m,saved);
+  h+=matHTML('C','c',p,n,saved);
+  h+=matHTML('D','d',p,m,saved);
+  $('matSection').innerHTML=h;
+  attachMatListeners();
+}
+
+function matHTML(label,prefix,rows,cols,saved){
+  let h=`<div class="mat-row"><span class="mat-lbl">${label}</span><span class="mat-eq">=</span><div class="mat-wrap"><div class="mat-g" style="grid-template-columns:repeat(${cols},52px)">`;
+  for(let i=0;i<rows;i++)
+    for(let j=0;j<cols;j++){
+      const id=prefix+'_'+i+'_'+j;
+      const v=saved[id]!==undefined?saved[id]:0;
+      h+=`<input type="number" id="${id}" value="${v}" step="0.1">`;
+    }
+  h+=`</div></div></div>`;
+  return h;
+}
+
+function readMat(prefix,rows,cols){
+  const M=[];
+  for(let i=0;i<rows;i++){
+    M.push([]);
+    for(let j=0;j<cols;j++){
+      const el=$(prefix+'_'+i+'_'+j);
+      M[i].push(el?+el.value:0);
+    }
+  }
+  return M;
+}
+
+function setMat(prefix,vals){
+  for(let i=0;i<vals.length;i++)
+    for(let j=0;j<vals[i].length;j++){
+      const el=$(prefix+'_'+i+'_'+j);
+      if(el)el.value=vals[i][j];
+    }
+}
+
+function readSS(){
+  const n=+$('ssN').value,m=+$('ssM').value,p=+$('ssP').value;
+  const A=readMat('a',n,n),B=readMat('b',n,m),C=readMat('c',p,n),D=readMat('d',p,m);
+  const check=mat=>mat.every(r=>r.every(v=>isFinite(v)));
+  if(!check(A))return{err:'A has invalid values'};
+  if(!check(B))return{err:'B has invalid values'};
+  if(!check(C))return{err:'C has invalid values'};
+  if(!check(D))return{err:'D has invalid values'};
+  const nDoF=Math.min(m,p);
+  return{nSt:n,nIn:m,nOut:p,nDoF,A,B,C,D,err:null};
+}
+
+/* ========== COMPLEX GAUSSIAN ELIMINATION ========== */
+function cxSolve(A,b,n){
+  const M=Array.from({length:n},(_,i)=>{
+    const row=new Array(n+1);
+    for(let j=0;j<n;j++)row[j]={re:A[i][j].re,im:A[i][j].im};
+    row[n]={re:b[i].re,im:b[i].im};
+    return row;
+  });
+  for(let col=0;col<n;col++){
+    let maxVal=Cx.abs(M[col][col]),maxRow=col;
+    for(let r=col+1;r<n;r++){const v=Cx.abs(M[r][col]);if(v>maxVal){maxVal=v;maxRow=r;}}
+    if(maxVal<1e-14)return null;
+    if(maxRow!==col){const tmp=M[col];M[col]=M[maxRow];M[maxRow]=tmp;}
+    const pivot=M[col][col];
+    for(let r=col+1;r<n;r++){
+      const f=Cx.div(M[r][col],pivot);
+      for(let j=col;j<=n;j++)M[r][j]=Cx.sub(M[r][j],Cx.mul(f,M[col][j]));
+    }
+  }
+  const x=new Array(n);
+  for(let i=n-1;i>=0;i--){
+    let sum=M[i][n];
+    for(let j=i+1;j<n;j++)sum=Cx.sub(sum,Cx.mul(M[i][j],x[j]));
+    x[i]=Cx.div(sum,M[i][i]);
+  }
+  return x;
+}
+
+/* ========== PID EVAL (complex) ========== */
+function pidEval(pid,jw){
+  const{Kp,Ki,Kd,Tf}=pid;
+  let H=Cx.n(Kp);
+  if(Math.abs(Ki)>1e-15)H=Cx.add(H,Cx.div(Cx.n(Ki),jw));
+  if(Math.abs(Kd)>1e-15)H=Cx.add(H,Cx.div(Cx.mul(Cx.n(Kd),jw),Cx.add(Cx.n(1),Cx.mul(Cx.n(Tf),jw))));
+  return H;
+}
+
+/* ========== PER-CHANNEL OPEN-LOOP FREQUENCY RESPONSE ========== */
+function mimoFreqResp(ss,pids,freqs){
+  const{A,B,C,D,nSt,nDoF}=ss;
+  const result=[];
+  for(let ch=0;ch<nDoF;ch++){
+    const mags=[],phases=[];
+    for(let fi=0;fi<freqs.length;fi++){
+      const w=freqs[fi],jw=Cx.n(0,w);
+      let Gii;
+      if(nSt>0){
+        const M=Array.from({length:nSt},(_,r)=>
+          Array.from({length:nSt},(__,c)=>r===c?Cx.sub(jw,Cx.n(A[r][c])):Cx.n(-A[r][c]))
+        );
+        const bVec=Array.from({length:nSt},(_,r)=>Cx.n(B[r][ch]));
+        const x=cxSolve(M,bVec,nSt);
+        if(!x){mags.push(-300);phases.push(0);continue;}
+        Gii=Cx.n(D[ch][ch]);
+        for(let k=0;k<nSt;k++)Gii=Cx.add(Gii,Cx.mul(Cx.n(C[ch][k]),x[k]));
+      }else{
+        Gii=Cx.n(D[ch][ch]);
+      }
+      const Li=Cx.mul(pidEval(pids[ch],jw),Gii);
+      mags.push(20*Math.log10(Math.max(Cx.abs(Li),1e-30)));
+      phases.push(Cx.arg(Li)*180/Math.PI);
+    }
+    for(let i=1;i<phases.length;i++){
+      while(phases[i]-phases[i-1]>180)phases[i]-=360;
+      while(phases[i]-phases[i-1]<-180)phases[i]+=360;
+    }
+    result.push({m:mags,ph:phases});
+  }
+  return result;
+}
+
+/* ========== BODE METRICS PER CHANNEL ========== */
+function bodeMetrics(freqs,m,ph){
+  let gcf,pm,pcf,gm;
+  const f=freqs.map(w=>w/(2*Math.PI));
+  for(let i=1;i<m.length;i++){
+    if(!gcf&&((m[i-1]>=0&&m[i]<0)||(m[i-1]<0&&m[i]>=0))){
+      const t=(0-m[i-1])/(m[i]-m[i-1]);
+      gcf=f[i-1]*Math.pow(f[i]/f[i-1],t);
+      pm=180+(ph[i-1]+t*(ph[i]-ph[i-1]));
+    }
+  }
+  for(let i=1;i<ph.length;i++){
+    if(!pcf&&((ph[i-1]>=-180&&ph[i]<-180)||(ph[i-1]<-180&&ph[i]>=-180))){
+      const t=(-180-ph[i-1])/(ph[i]-ph[i-1]);
+      pcf=f[i-1]*Math.pow(f[i]/f[i-1],t);
+      gm=-(m[i-1]+t*(m[i]-m[i-1]));
+    }
+  }
+  return{gcf,pm,pcf,gm};
+}
+
+/* ========== GENERAL MIMO TIME-DOMAIN SIMULATION (RK4) ========== */
+// refFn(ch, t) returns reference for channel ch at time t
+// x0 optional initial plant state vector
+function mimoTimeSim(ss,pids,tEnd,nPts,refFn,x0){
+  const{A,B,C,D,nSt,nDoF}=ss;
+  const nPid=nDoF*2,N=nSt+nPid,dt=tEnd/(nPts-1);
+  function plantOut(xp,u){
+    const y=new Array(nDoF);
+    for(let i=0;i<nDoF;i++){
+      y[i]=0;
+      for(let j=0;j<nSt;j++)y[i]+=C[i][j]*xp[j];
+      for(let j=0;j<nDoF;j++)y[i]+=D[i][j]*u[j];
+    }
+    return y;
+  }
+  const hasAlgLoop=Array.from({length:nDoF},(_,i)=>Math.abs(D[i][i])>1e-15);
+  function computeUandY(state,t){
+    const xp=state.slice(0,nSt);
+    const u=new Array(nDoF),e=new Array(nDoF);
+    for(let i=0;i<nDoF;i++){
+      const{Kp,Ki,Kd,Tf}=pids[i];
+      const integ=state[nSt+i*2],zf=state[nSt+i*2+1];
+      const Ke=Kp+Kd/Tf,uf=Ki*integ-Kd*zf/Tf;
+      const ri=refFn(i,t);
+      if(hasAlgLoop[i]){
+        let cy=0;for(let j=0;j<nSt;j++)cy+=C[i][j]*xp[j];
+        u[i]=(Ke*(ri-cy)+uf)/(1+Ke*D[i][i]);
+        e[i]=ri-cy-D[i][i]*u[i];
+      }else{
+        let yi=0;for(let j=0;j<nSt;j++)yi+=C[i][j]*xp[j];
+        e[i]=ri-yi;
+        u[i]=Kp*e[i]+Ki*integ+Kd*(e[i]-zf)/Tf;
+      }
+    }
+    const y=plantOut(xp,u);
+    return{u,y,e};
+  }
+  function deriv(state,t){
+    const ds=new Float64Array(N);
+    const{u,e}=computeUandY(state,t);
+    for(let i=0;i<nSt;i++){
+      for(let j=0;j<nSt;j++)ds[i]+=A[i][j]*state[j];
+      for(let j=0;j<nDoF;j++)ds[i]+=B[i][j]*u[j];
+    }
+    for(let i=0;i<nDoF;i++){
+      ds[nSt+i*2]=e[i];
+      ds[nSt+i*2+1]=(e[i]-state[nSt+i*2+1])/pids[i].Tf;
+    }
+    return ds;
+  }
+  const state=new Float64Array(N);
+  if(x0)for(let i=0;i<nSt&&i<x0.length;i++)state[i]=x0[i];
+  const ts=[],ys=Array.from({length:nDoF},()=>[]),rs=Array.from({length:nDoF},()=>[]);
+  let blow=false;
+  for(let k=0;k<nPts;k++){
+    const t=k*dt;ts.push(t);
+    for(let ch=0;ch<nDoF;ch++)rs[ch].push(refFn(ch,t));
+    const{y}=computeUandY(state,t);
+    for(let ch=0;ch<nDoF;ch++)ys[ch].push(y[ch]);
+    if(y.some(v=>Math.abs(v)>1e8)){
+      blow=true;
+      for(let j=k+1;j<nPts;j++){
+        ts.push(j*dt);
+        for(let ch=0;ch<nDoF;ch++){ys[ch].push(NaN);rs[ch].push(refFn(ch,j*dt));}
+      }
+      break;
+    }
+    const k1=deriv(state,t);
+    const s2=new Float64Array(N);for(let i=0;i<N;i++)s2[i]=state[i]+dt/2*k1[i];
+    const k2=deriv(s2,t+dt/2);
+    const s3=new Float64Array(N);for(let i=0;i<N;i++)s3[i]=state[i]+dt/2*k2[i];
+    const k3=deriv(s3,t+dt/2);
+    const s4=new Float64Array(N);for(let i=0;i<N;i++)s4[i]=state[i]+dt*k3[i];
+    const k4=deriv(s4,t+dt);
+    for(let i=0;i<N;i++)state[i]+=dt/6*(k1[i]+2*k2[i]+2*k3[i]+k4[i]);
+  }
+  return{t:ts,ys,rs,unstable:blow};
+}
+
+/* ========== SIGNAL BUILDER ========== */
+function buildInputFn(){
+  const type=$('simSigType').value,amp=+$('simSigAmp').value,off=+$('simSigOff').value;
+  const freq=Math.max(+$('simSigFreq').value||1,1e-6),td=+$('simSigDelay').value,duty=(+$('simSigDuty').value||50)/100;
+  switch(type){
+    case'step':return t=>off+(t>=td?amp:0);
+    case'ramp':return t=>off+(t>=td?amp*(t-td):0);
+    case'sine':return t=>off+amp*Math.sin(2*Math.PI*freq*t);
+    case'square':return t=>off+amp*(((freq*t)%1+1)%1<duty?1:-1);
+    case'sawtooth':return t=>off+amp*(2*(((freq*t)%1+1)%1)-1);
+    default:return()=>off;
+  }
+}
+function parseX0(){
+  const s=$('simX0').value.trim();
+  if(!s||s==='0')return[];
+  return s.split(',').map(v=>+v.trim()).filter(v=>isFinite(v));
+}
+function updSimUI(){
+  const t=$('simSigType').value;
+  const hasFreq=t==='sine'||t==='square'||t==='sawtooth';
+  $('rowSigFreq').style.display=hasFreq?'flex':'none';
+  $('rowSigDelay').style.display=!hasFreq?'flex':'none';
+  $('rowSigDuty').style.display=t==='square'?'flex':'none';
+  $('lblSigAmp').textContent=t==='ramp'?'Slope (/s)':'Amplitude';
+}
+
+/* ========== CHART MANAGEMENT ========== */
+const CS={};
+const DOF_COLS=['#f59e0b','#3b82f6','#22c55e','#ef4444','#a855f7','#ec4899','#14b8a6','#f97316'];
+
+Chart.defaults.color='#a1a1aa';
+Chart.defaults.borderColor='#27272a';
+Chart.defaults.font.size=11;
+Chart.defaults.font.family="'SF Mono',Menlo,monospace";
+
+function mkChart(id,cfg){
+  if(CS[id])CS[id].destroy();
+  CS[id]=new Chart($(id).getContext('2d'),cfg);
+  return CS[id];
+}
+function scatterOpts(xLab,yLab,logX){
+  return{responsive:true,maintainAspectRatio:false,animation:{duration:0},
+    plugins:{legend:{display:false},tooltip:{mode:'nearest',intersect:false}},
+    scales:{
+      x:{type:logX?'logarithmic':'linear',title:{display:true,text:xLab,color:'#a1a1aa'},grid:{color:'#27272a'},ticks:{color:'#52525b'}},
+      y:{type:'linear',title:{display:true,text:yLab,color:'#a1a1aa'},grid:{color:'#27272a'},ticks:{color:'#52525b'}}
+    }};
+}
+
+/* ========== MAIN UPDATE ========== */
+function updCharts(){
+  const v=readSS();
+  if(v.err){$('ssDims').textContent=v.err;$('ssDims').classList.add('err');return;}
+  $('ssDims').textContent=`n=${v.nSt}  m=${v.nIn}  p=${v.nOut}  DoF=${v.nDoF}`;
+  $('ssDims').classList.remove('err');
+
+  const pids=readPids(v.nDoF);
+  const tEnd=Math.max(+$('simTend').value||10,.1);
+  const fMin=Math.max(+$('simFmin').value||.001,1e-6);
+  const fMax=Math.max(+$('simFmax').value||200,fMin*10);
+  const wMin=fMin*2*Math.PI,wMax=fMax*2*Math.PI;
+  const nPts=2000,nFreq=500;
+  const excCh=Math.min(+$('excCh').value||0,v.nDoF-1);
+  const excAmp=+$('excAmp').value||1;
+  const dt=tEnd/(nPts-1);
+
+  const freqs=[];
+  const lMin=Math.log10(wMin),lMax=Math.log10(wMax);
+  for(let i=0;i<nFreq;i++)freqs.push(Math.pow(10,lMin+i*(lMax-lMin)/(nFreq-1)));
+
+  // Frequency response
+  const frAll=mimoFreqResp(v,pids,freqs);
+  const bmAll=frAll.map(fr=>bodeMetrics(freqs,fr.m,fr.ph));
+
+  // Step response
+  const stepData=mimoTimeSim(v,pids,tEnd,nPts,(ch,t)=>ch===excCh?excAmp:0);
+
+  // Impulse response (narrow pulse approximation: width=dt, amplitude=excAmp/dt)
+  const impAmp=excAmp/dt;
+  const impData=mimoTimeSim(v,pids,tEnd,nPts,(ch,t)=>ch===excCh&&t<dt*1.5?impAmp:0);
+
+  // Custom simulator
+  const uFn=buildInputFn(),x0=parseX0();
+  const simData=mimoTimeSim(v,pids,tEnd,nPts,(ch,t)=>ch===excCh?uFn(t):0,x0);
+
+  updMetricsBar(bmAll,stepData,impData,simData,excCh,excAmp);
+  updLegend(v.nDoF);
+  const TP=2*Math.PI;
+
+  // Step chart
+  const stepDS=[{
+    label:'Reference',
+    data:stepData.t.map(t=>({x:t,y:t>=0?excAmp:0})),
+    showLine:true,borderColor:'#52525b88',borderWidth:1,borderDash:[6,3],pointRadius:0,order:99
+  }];
+  for(let ch=0;ch<v.nDoF;ch++){
+    stepDS.push({label:`Ch ${ch+1}`,
+      data:stepData.t.map((t,i)=>({x:t,y:stepData.ys[ch][i]})),
+      showLine:true,borderColor:DOF_COLS[ch%DOF_COLS.length],borderWidth:2,pointRadius:0,order:ch
+    });
+  }
+  mkChart('cStep',{type:'scatter',data:{datasets:stepDS},options:scatterOpts('Time (s)','Amplitude',false)});
+
+  // Impulse chart
+  const impDS=[{
+    label:'Zero',data:[{x:0,y:0},{x:tEnd,y:0}],
+    showLine:true,borderColor:'#52525b44',borderWidth:1,borderDash:[6,3],pointRadius:0,order:99
+  }];
+  for(let ch=0;ch<v.nDoF;ch++){
+    impDS.push({label:`Ch ${ch+1}`,
+      data:impData.t.map((t,i)=>({x:t,y:impData.ys[ch][i]})),
+      showLine:true,borderColor:DOF_COLS[ch%DOF_COLS.length],borderWidth:2,pointRadius:0,order:ch
+    });
+  }
+  mkChart('cImpulse',{type:'scatter',data:{datasets:impDS},options:scatterOpts('Time (s)','Amplitude',false)});
+
+  // Bode Magnitude
+  const magDS=[{label:'0 dB',data:[{x:fMin,y:0},{x:fMax,y:0}],showLine:true,borderColor:'#52525b44',borderWidth:1,borderDash:[6,3],pointRadius:0,order:99}];
+  for(let ch=0;ch<v.nDoF;ch++){
+    magDS.push({label:`L${ch+1}`,
+      data:freqs.map((w,i)=>({x:w/TP,y:frAll[ch].m[i]})),
+      showLine:true,borderColor:DOF_COLS[ch%DOF_COLS.length],borderWidth:2,pointRadius:0,order:ch
+    });
+  }
+  mkChart('cMag',{type:'scatter',data:{datasets:magDS},options:scatterOpts('Frequency (Hz)','Magnitude (dB)',true)});
+
+  // Bode Phase
+  const phDS=[{label:'-180\u00b0',data:[{x:fMin,y:-180},{x:fMax,y:-180}],showLine:true,borderColor:'#52525b44',borderWidth:1,borderDash:[6,3],pointRadius:0,order:99}];
+  for(let ch=0;ch<v.nDoF;ch++){
+    phDS.push({label:`\u2220L${ch+1}`,
+      data:freqs.map((w,i)=>({x:w/TP,y:frAll[ch].ph[i]})),
+      showLine:true,borderColor:DOF_COLS[ch%DOF_COLS.length],borderWidth:2,pointRadius:0,order:ch
+    });
+  }
+  mkChart('cPhase',{type:'scatter',data:{datasets:phDS},options:scatterOpts('Frequency (Hz)','Phase (\u00b0)',true)});
+
+  // Simulator chart - input + all outputs
+  const simDS=[{
+    label:'Input r(t)',
+    data:simData.t.map((t,i)=>({x:t,y:simData.rs[excCh][i]})),
+    showLine:true,borderColor:'#3b82f688',borderWidth:1,borderDash:[6,3],pointRadius:0,order:99
+  }];
+  for(let ch=0;ch<v.nDoF;ch++){
+    simDS.push({label:`y${ch+1}(t)`,
+      data:simData.t.map((t,i)=>({x:t,y:simData.ys[ch][i]})),
+      showLine:true,borderColor:DOF_COLS[ch%DOF_COLS.length],borderWidth:2,pointRadius:0,order:ch
+    });
+  }
+  mkChart('cSim',{type:'scatter',data:{datasets:simDS},options:scatterOpts('Time (s)','Amplitude',false)});
+}
+
+function updMetricsBar(bmAll,stepData,impData,simData,excCh,excAmp){
+  const mb=$('mbar');let h='';
+  if(curTab==='step'){
+    if(stepData.unstable){h='<div class="met"><span class="met-v b">UNSTABLE</span></div>';}
+    else{
+      const ys=stepData.ys[excCh],valid=ys.filter(v=>isFinite(v));
+      if(valid.length>20){
+        const tail=valid.slice(-Math.max(Math.floor(valid.length*.1),5));
+        const fv=tail.reduce((a,b)=>a+b,0)/tail.length;
+        const pk=Math.max(...valid);
+        const os=fv>0?Math.max(0,(pk-fv)/fv*100):0;
+        const sse=Math.abs(excAmp)>1e-10?Math.abs(1-fv/excAmp):0;
+        h+=met('Ch',(excCh+1).toString(),'');
+        h+=met('OS',os.toFixed(1)+'%',os<5?'g':os<20?'w':'b');
+        h+=met('SS Err',sse.toFixed(4),sse<.01?'g':sse<.05?'w':'b');
+        h+=met('Final',fv.toFixed(4),'');
+      }
+    }
+  }else if(curTab==='impulse'){
+    if(impData.unstable){h='<div class="met"><span class="met-v b">UNSTABLE</span></div>';}
+    else h+=`<div class="met"><span class="met-l">Closed-loop impulse response &middot; Ch ${excCh+1}</span></div>`;
+  }else if(curTab==='sim'){
+    if(simData.unstable){h='<div class="met"><span class="met-v b">UNSTABLE</span></div>';}
+    else{
+      const ys=simData.ys[excCh],valid=ys.filter(v=>isFinite(v));
+      if(valid.length>5){
+        const pk=Math.max(...valid),mn=Math.min(...valid),fv=valid[valid.length-1];
+        const ufv=simData.rs[excCh][simData.rs[excCh].length-1];
+        const sse=Math.abs(fv-ufv);
+        h+=met('Ch',(excCh+1).toString(),'');
+        h+=met('Peak',pk.toFixed(3),'');
+        h+=met('Min',mn.toFixed(3),'');
+        h+=met('Final',fv.toFixed(4),'');
+        h+=met('SS Err',sse.toFixed(4),sse<.01?'g':sse<.05?'w':'b');
+      }
+    }
+  }else{
+    for(let ch=0;ch<bmAll.length;ch++){
+      const bm=bmAll[ch],pre=`Ch${ch+1} `;
+      h+=met(pre+'GM',bm.gm!==undefined?bm.gm.toFixed(1)+' dB':'\u221e',bm.gm===undefined||bm.gm>6?'g':bm.gm>0?'w':'b');
+      h+=met(pre+'PM',bm.pm!==undefined?bm.pm.toFixed(1)+'\u00b0':'--',bm.pm===undefined?'':bm.pm>45?'g':bm.pm>0?'w':'b');
+    }
+  }
+  mb.innerHTML=h;
+}
+function met(l,v,c){return`<div class="met"><span class="met-l">${l}</span><span class="met-v ${c}">${v}</span></div>`;}
+
+function updLegend(nDoF){
+  let h='';
+  for(let ch=0;ch<nDoF;ch++)
+    h+=`<div class="leg-item"><div class="swatch" style="background:${DOF_COLS[ch%DOF_COLS.length]}"></div>Channel ${ch+1}</div>`;
+  $('legendBar').innerHTML=h;
+}
+
+/* ========== UI LOGIC ========== */
+let curTab='step',updTimer,curNDoF=0;
+
+function tP(h){const b=h.nextElementSibling;b.classList.toggle('hide');h.classList.toggle('collapsed');}
+function tglS(el){el.classList.toggle('on');sched();}
+
+function readPids(nDoF){
+  const pids=[];
+  for(let i=0;i<nDoF;i++){
+    const on=$('pidTgl'+i);
+    if(!on||!on.classList.contains('on')){pids.push({Kp:1,Ki:0,Kd:0,Tf:0.01});continue;}
+    const Kp=+($('pidKp'+i)?.value)||1;
+    const fi=+($('pidFi'+i)?.value)||0;
+    const fd=+($('pidFd'+i)?.value)||0;
+    const Tf=Math.max(+($('pidTf'+i)?.value)||0.01,1e-6);
+    const Ki=Kp*2*Math.PI*fi;
+    const Kd=(2*Math.PI*fd)>1e-15?Kp/(2*Math.PI*fd):0;
+    pids.push({Kp,Ki,Kd,Tf});
+  }
+  return pids;
+}
+
+function buildDofUI(nDoF){
+  const saved=[];
+  for(let i=0;i<curNDoF;i++){
+    saved.push({
+      on:$('pidTgl'+i)?.classList.contains('on')??true,
+      Kp:$('pidKp'+i)?.value??'1',
+      fi:$('pidFi'+i)?.value??'0.08',
+      fd:$('pidFd'+i)?.value??'0.8',
+      Tf:$('pidTf'+i)?.value??'0.01'
+    });
+  }
+  let h='';
+  for(let i=0;i<nDoF;i++){
+    const s=saved[i]||{on:true,Kp:'1',fi:'0.08',fd:'0.8',Tf:'0.01'};
+    const col=DOF_COLS[i%DOF_COLS.length];
+    h+=`<div class="dof-pnl">
+      <div class="dof-h" onclick="tDof(${i})">
+        <div class="dot" style="background:${col}"></div>
+        <span>DoF ${i+1}</span>
+        <div class="tgl${s.on?' on':''}" id="pidTgl${i}" onclick="event.stopPropagation();tglS(this)"></div>
+        <span class="arr" id="dofArr${i}">&#9660;</span>
+      </div>
+      <div class="dof-b" id="dofBody${i}">
+        <div class="pr"><label>Kp</label><input type="number" id="pidKp${i}" value="${s.Kp}" step="0.1"></div>
+        <div class="pr"><label>fi (Hz)</label><input type="number" id="pidFi${i}" value="${s.fi}" min="0" step="0.01"></div>
+        <div class="pr"><label>fd (Hz)</label><input type="number" id="pidFd${i}" value="${s.fd}" min="0" step="0.1"></div>
+        <div class="pr"><label>T_f (s)</label><input type="number" id="pidTf${i}" value="${s.Tf}" min="0.001" step="0.01"></div>
+      </div>
+    </div>`;
+  }
+  $('pidBody').innerHTML=h;
+  let opts='';
+  for(let i=0;i<nDoF;i++)opts+=`<option value="${i}">Ch ${i+1}</option>`;
+  $('excCh').innerHTML=opts;
+  curNDoF=nDoF;
+  attachPidListeners();
+}
+
+function tDof(i){$('dofBody'+i).classList.toggle('hide');}
+
+function setTab(tab,btn){
+  curTab=tab;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('act'));
+  btn.classList.add('act');
+  $('wStep').classList.toggle('hide',tab!=='step');
+  $('wImpulse').classList.toggle('hide',tab!=='impulse');
+  $('wMag').classList.toggle('hide',tab!=='bode');
+  $('wPhase').classList.toggle('hide',tab!=='bode');
+  $('wSim').classList.toggle('hide',tab!=='sim');
+  setTimeout(()=>{Object.values(CS).forEach(c=>c.resize());},50);
+  update();
+}
+
+function sched(){clearTimeout(updTimer);updTimer=setTimeout(update,100);}
+
+function update(){
+  try{
+    const v=readSS();
+    if(!v.err&&v.nDoF!==curNDoF)buildDofUI(v.nDoF);
+    updCharts();
+  }catch(e){console.error('Update error:',e);}
+}
+
+function attachMatListeners(){
+  document.querySelectorAll('#matSection input').forEach(el=>{
+    el.addEventListener('input',()=>{$('ssExample').value='';sched();});
+  });
+}
+
+function attachPidListeners(){
+  document.querySelectorAll('#pidBody input[type=number]').forEach(el=>{
+    el.removeEventListener('input',sched);
+    el.addEventListener('input',sched);
+  });
+}
+
+function attachListeners(){
+  ['simTend','simFmin','simFmax','excAmp','simSigAmp','simSigFreq','simSigDelay','simSigDuty','simSigOff'].forEach(id=>{
+    $(id).addEventListener('input',sched);
+  });
+  $('excCh').addEventListener('change',sched);
+  $('ssExample').addEventListener('change',loadExample);
+  $('simSigType').addEventListener('change',()=>{updSimUI();sched();});
+  $('simX0').addEventListener('input',sched);
+  ['ssN','ssM','ssP'].forEach(id=>{
+    $(id).addEventListener('change',()=>{$('ssExample').value='';buildMatGrids();sched();});
+  });
+}
+
+/* ========== EXAMPLES ========== */
+function loadExample(){
+  const ex=$('ssExample').value;
+  if(ex==='2dof1'){
+    $('ssN').value='2';$('ssM').value='2';$('ssP').value='2';
+    buildMatGrids();
+    setMat('a',[[-1,0],[0,-2]]);
+    setMat('b',[[1,0],[0,1]]);
+    setMat('c',[[1,0],[0,1]]);
+    setMat('d',[[0,0],[0,0]]);
+  }else if(ex==='siso2'){
+    $('ssN').value='2';$('ssM').value='1';$('ssP').value='1';
+    buildMatGrids();
+    setMat('a',[[0,1],[-4,-1]]);
+    setMat('b',[[0],[1]]);
+    setMat('c',[[1,0]]);
+    setMat('d',[[0]]);
+  }else if(ex==='3dof'){
+    $('ssN').value='3';$('ssM').value='3';$('ssP').value='3';
+    buildMatGrids();
+    setMat('a',[[-1,0,0],[0,-2,0],[0,0,-5]]);
+    setMat('b',[[1,0,0],[0,1,0],[0,0,1]]);
+    setMat('c',[[1,0,0],[0,1,0],[0,0,1]]);
+    setMat('d',[[0,0,0],[0,0,0],[0,0,0]]);
+  }
+  sched();
+}
+
+// PWA service worker
+if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+
+// Init
+attachListeners();
+updSimUI();
+loadExample();
+</script>
+</body>
+</html>
