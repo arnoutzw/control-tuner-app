@@ -64,6 +64,15 @@ header .sub{font-size:11px;color:var(--t2)}
 .chwrap.hide{display:none}
 .warn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:var(--red);font-size:14px;font-weight:600;text-align:center;pointer-events:none}
 @media(max-width:900px){.main{flex-direction:column}.sidebar{width:100%;min-width:auto;max-height:35vh;border-right:none;border-bottom:1px solid var(--brd)}}
+#w3D{position:relative}
+#msd3DMsg{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:var(--t2);font-size:14px;text-align:center;pointer-events:none;z-index:2}
+#msd3DCtrl{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:rgba(24,24,27,.85);padding:6px 14px;border-radius:8px;border:1px solid var(--brd);z-index:2}
+#msd3DCtrl button{background:var(--bg3);border:1px solid var(--brd);color:var(--t0);border-radius:4px;padding:4px 10px;cursor:pointer;font-size:14px}
+#msd3DCtrl button:hover{background:var(--bg2);border-color:var(--acc)}
+#msd3DCtrl select{background:var(--bg1);border:1px solid var(--brd);color:var(--t0);border-radius:4px;padding:2px 4px;font-size:11px;font-family:'SF Mono',Menlo,monospace;cursor:pointer}
+#msd3DTime{color:var(--t2);font-size:11px;font-family:'SF Mono',Menlo,monospace;min-width:100px;text-align:center}
+#msd3DProgress{width:120px;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden}
+#msd3DBar{height:100%;background:var(--acc);width:0;transition:none}
 </style>
 </head>
 <body>
@@ -135,6 +144,7 @@ header .sub{font-size:11px;color:var(--t2)}
 <button class="tab" data-tab="impulse" onclick="setTab('impulse',this)">Impulse Response</button>
 <button class="tab" data-tab="bode" onclick="setTab('bode',this)">Bode Plot</button>
 <button class="tab" data-tab="sim" onclick="setTab('sim',this)">Simulator</button>
+<button class="tab" data-tab="3d" onclick="setTab('3d',this)">3D View</button>
 </div>
 <div class="mbar" id="mbar"></div>
 <div class="charts">
@@ -143,12 +153,23 @@ header .sub{font-size:11px;color:var(--t2)}
 <div class="chwrap hide" id="wMag"><canvas id="cMag"></canvas></div>
 <div class="chwrap hide" id="wPhase"><canvas id="cPhase"></canvas></div>
 <div class="chwrap hide" id="wSim"><canvas id="cSim"></canvas></div>
+<div class="chwrap hide" id="w3D">
+<div id="msd3DMsg" class="hide">Select <b>Mass-Spring-Damper</b> plant model to view 3D visualization</div>
+<div id="msd3DCtrl" class="hide">
+<button onclick="msd3DRestart()" title="Restart">&#8634;</button>
+<button onclick="msd3DToggle()" id="msd3DPlayBtn" title="Play/Pause">&#9208;</button>
+<div id="msd3DProgress"><div id="msd3DBar"></div></div>
+<span id="msd3DTime">0.00s</span>
+<select id="msd3DSpeedSel" onchange="msd3DSpd=+this.value" title="Speed"><option value="0.25">0.25x</option><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option></select>
+</div>
+</div>
 </div>
 </main>
 </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 /* ========== MATH UTILITIES ========== */
 const Cx={
@@ -410,7 +431,7 @@ function updCharts(sys){
 
   // Closed-loop time responses
   const ss=tf2ss(sys.cl.n,sys.cl.d);
-  const stepData=simStep(ss,tEnd,nPts);
+  const stepData=simStep(ss,tEnd,nPts);lastStepData=stepData;
   const impData=simImpulse(ss,tEnd,nPts);
   const uFn=buildInputFn(),x0=parseX0();
   const simData=simCustom(ss,uFn,tEnd,nPts,x0);
@@ -476,6 +497,9 @@ function updCharts(sys){
     ]},
     options:scatterOpts('Time (s)','Amplitude',false,simData.unstable)
   });
+
+  // 3D MSD visualization
+  if(curTab==='3d')upd3D(stepData);
 }
 
 function scatterOpts(xLab,yLab,logX,unstable){
@@ -513,6 +537,13 @@ function updMetrics(sm,bm,simData){
       h+=met('Final',fv.toFixed(4),'');
       h+=met('SS Err',(Math.abs(fv-ufv)).toFixed(4),Math.abs(fv-ufv)<.01?'g':Math.abs(fv-ufv)<.05?'w':'b');
     }
+  }else if(curTab==='3d'){
+    if($('plantModel').value==='msd'){
+      const m=+$('plantM').value,c=+$('plantDamp').value,k=+$('plantSpK').value;
+      const wn=Math.sqrt(k/m),zeta=c/(2*Math.sqrt(k*m));
+      h+=met('m',m.toFixed(2)+' kg','');h+=met('c',c.toFixed(2)+' Ns/m','');h+=met('k',k.toFixed(2)+' N/m','');
+      h+=met('&omega;<sub>n</sub>',wn.toFixed(2)+' rad/s','');h+=met('&zeta;',zeta.toFixed(3),zeta<1?'g':zeta>1?'w':'');
+    }else h+='<div class="met"><span class="met-l">Select Mass-Spring-Damper model for 3D view</span></div>';
   }else{
     h+=met('GM',bm.gm!==undefined?bm.gm.toFixed(1)+' dB':'&infin;',bm.gm===undefined||bm.gm>6?'g':bm.gm>0?'w':'b');
     h+=met('PM',bm.pm!==undefined?bm.pm.toFixed(1)+'&deg;':'--',bm.pm===undefined?'':bm.pm>45?'g':bm.pm>0?'w':'b');
@@ -525,7 +556,7 @@ function met(l,v,c){return`<div class="met"><span class="met-l">${l}</span><span
 
 /* ========== UI LOGIC ========== */
 const $=id=>document.getElementById(id);
-let curTab='step',updTimer;
+let curTab='step',updTimer,lastStepData=null;
 
 function tP(h){
   const b=h.nextElementSibling;
@@ -558,8 +589,9 @@ function setTab(tab,btn){
   $('wMag').classList.toggle('hide',tab!=='bode');
   $('wPhase').classList.toggle('hide',tab!=='bode');
   $('wSim').classList.toggle('hide',tab!=='sim');
+  $('w3D').classList.toggle('hide',tab!=='3d');
   // Trigger resize after show
-  setTimeout(()=>{Object.values(CS).forEach(c=>c.resize());},50);
+  setTimeout(()=>{Object.values(CS).forEach(c=>c.resize());if(tab==='3d')resize3D();},50);
   update();
 }
 function sched(){clearTimeout(updTimer);updTimer=setTimeout(update,80);}
@@ -619,6 +651,147 @@ function updFltUI(i){
   $('fP1_'+i).value=FDEF1[idx];
   $('fP2_'+i).value=FDEF2[idx];
 }
+
+/* ========== 3D MSD VISUALIZATION ========== */
+let scene3D,cam3D,ren3D,mass3D,spring3D,dpCyl3D,dpRod3D;
+let msd3Dt=null,msd3Dy=null,msd3DScale=1,msd3DElapsed=0,msd3DLastTs=null,msd3DPaused=false,msd3DReq=null,msd3DSpd=1,msd3DTend=10;
+const WALL_X=-4,EQ_X=0,SP_Y=0.8,DP_Y=-0.1;
+let orb={drag:false,px:0,py:0,th:0,ph:0.28,r:9.5};
+
+function orbCam(){
+  cam3D.position.set(-0.5+orb.r*Math.sin(orb.th)*Math.cos(orb.ph),orb.r*Math.sin(orb.ph),orb.r*Math.cos(orb.th)*Math.cos(orb.ph));
+  cam3D.lookAt(-0.5,0.3,0);
+}
+
+function init3D(){
+  if(ren3D)return;
+  const el=$('w3D');
+  scene3D=new THREE.Scene();
+  scene3D.background=new THREE.Color(0x09090b);
+  cam3D=new THREE.PerspectiveCamera(38,el.clientWidth/Math.max(el.clientHeight,1),0.1,100);
+  orbCam();
+  ren3D=new THREE.WebGLRenderer({antialias:true});
+  ren3D.setPixelRatio(window.devicePixelRatio);
+  ren3D.setSize(el.clientWidth,el.clientHeight);
+  el.insertBefore(ren3D.domElement,el.firstChild);
+
+  // Mouse orbit controls
+  const cv=ren3D.domElement;
+  cv.addEventListener('mousedown',e=>{orb.drag=true;orb.px=e.clientX;orb.py=e.clientY;});
+  cv.addEventListener('mousemove',e=>{
+    if(!orb.drag)return;
+    orb.th-=(e.clientX-orb.px)*0.005;
+    orb.ph=Math.max(0.05,Math.min(Math.PI/2.2,orb.ph+(e.clientY-orb.py)*0.005));
+    orb.px=e.clientX;orb.py=e.clientY;
+    orbCam();if(!msd3DReq)ren3D.render(scene3D,cam3D);
+  });
+  cv.addEventListener('mouseup',()=>{orb.drag=false;});
+  cv.addEventListener('mouseleave',()=>{orb.drag=false;});
+  cv.addEventListener('wheel',e=>{
+    e.preventDefault();
+    orb.r=Math.max(4,Math.min(20,orb.r+e.deltaY*0.01));
+    orbCam();if(!msd3DReq)ren3D.render(scene3D,cam3D);
+  },{passive:false});
+
+  // Lighting
+  scene3D.add(new THREE.AmbientLight(0x606060));
+  const dl=new THREE.DirectionalLight(0xffffff,0.8);dl.position.set(4,8,6);scene3D.add(dl);
+  const dl2=new THREE.DirectionalLight(0xffffff,0.3);dl2.position.set(-3,2,-4);scene3D.add(dl2);
+
+  // Ground + grid
+  const gnd=new THREE.Mesh(new THREE.PlaneGeometry(16,8),new THREE.MeshStandardMaterial({color:0x18181b}));
+  gnd.rotation.x=-Math.PI/2;gnd.position.y=-0.61;scene3D.add(gnd);
+  const grid=new THREE.GridHelper(14,14,0x3f3f46,0x27272a);grid.position.y=-0.6;scene3D.add(grid);
+
+  // Wall (fixed)
+  const wall=new THREE.Mesh(new THREE.BoxGeometry(0.3,3,2),new THREE.MeshStandardMaterial({color:0x52525b}));
+  wall.position.set(WALL_X,0.9,0);scene3D.add(wall);
+  // Hatching on wall back
+  const hp=[];
+  for(let i=0;i<8;i++){const y=-0.5+i*0.5;hp.push(WALL_X-0.16,y,1,WALL_X-0.16,y+0.3,-1);}
+  const hg=new THREE.BufferGeometry();hg.setAttribute('position',new THREE.Float32BufferAttribute(hp,3));
+  scene3D.add(new THREE.LineSegments(hg,new THREE.LineBasicMaterial({color:0x71717a})));
+
+  // Mass block
+  mass3D=new THREE.Mesh(new THREE.BoxGeometry(1.2,1.2,1.2),new THREE.MeshStandardMaterial({color:0xf59e0b,metalness:0.3,roughness:0.5}));
+  mass3D.position.set(EQ_X,0.5,0);scene3D.add(mass3D);
+  mass3D.add(new THREE.LineSegments(new THREE.EdgesGeometry(mass3D.geometry),new THREE.LineBasicMaterial({color:0xd97706})));
+
+  // Spring
+  spring3D=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color:0x22c55e}));
+  scene3D.add(spring3D);updSpring(EQ_X);
+
+  // Damper body (cylinder housing)
+  dpCyl3D=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,1.6,16,1,true),new THREE.MeshStandardMaterial({color:0x3b82f6,transparent:true,opacity:0.6,side:THREE.DoubleSide}));
+  dpCyl3D.rotation.z=Math.PI/2;dpCyl3D.position.set(WALL_X+1.0,DP_Y,0);scene3D.add(dpCyl3D);
+  const cap=new THREE.Mesh(new THREE.CircleGeometry(0.22,16),new THREE.MeshStandardMaterial({color:0x3b82f6,side:THREE.DoubleSide}));
+  cap.rotation.y=Math.PI/2;cap.position.set(WALL_X+0.2,DP_Y,0);scene3D.add(cap);
+
+  // Damper piston rod
+  dpRod3D=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,3,8),new THREE.MeshStandardMaterial({color:0xa1a1aa,metalness:0.6,roughness:0.3}));
+  dpRod3D.rotation.z=Math.PI/2;scene3D.add(dpRod3D);updDamper(EQ_X);
+
+  // Force arrow
+  const arrow=new THREE.ArrowHelper(new THREE.Vector3(1,0,0),new THREE.Vector3(EQ_X+1.2,0.5,0),1.2,0xef4444,0.3,0.15);
+  arrow.name='forceArrow';scene3D.add(arrow);
+
+  ren3D.render(scene3D,cam3D);
+}
+
+function springPts(x1,x2,y,n,amp){
+  const pts=[],dx=(x2-x1)/(n*2+2);
+  pts.push(new THREE.Vector3(x1,y,0));
+  pts.push(new THREE.Vector3(x1+dx,y,0));
+  for(let i=0;i<n*2;i++){
+    const x=x1+dx+(i+1)*(x2-x1-2*dx)/(n*2);
+    pts.push(new THREE.Vector3(x,y,(i%2===0?1:-1)*amp));
+  }
+  pts.push(new THREE.Vector3(x2-dx,y,0));
+  pts.push(new THREE.Vector3(x2,y,0));
+  return pts;
+}
+function updSpring(mx){spring3D.geometry.dispose();spring3D.geometry=new THREE.BufferGeometry().setFromPoints(springPts(WALL_X+0.15,mx-0.6,SP_Y,10,0.25));}
+function updDamper(mx){const s=WALL_X+0.2,len=Math.max(mx-0.6-s,0.2);dpRod3D.scale.y=len/3;dpRod3D.position.set(s+len/2,DP_Y,0);}
+function setMassPos(mx){mass3D.position.x=mx;updSpring(mx);updDamper(mx);const a=scene3D.getObjectByName('forceArrow');if(a)a.position.x=mx+0.7;}
+
+function upd3D(stepData){
+  const isMSD=$('plantModel').value==='msd';
+  const msg=$('msd3DMsg'),ctrl=$('msd3DCtrl');
+  if(!isMSD){
+    if(msg)msg.classList.remove('hide');if(ctrl)ctrl.classList.add('hide');
+    if(msd3DReq){cancelAnimationFrame(msd3DReq);msd3DReq=null;}
+    if(ren3D){setMassPos(EQ_X);ren3D.render(scene3D,cam3D);}
+    msd3Dt=null;return;
+  }
+  if(msg)msg.classList.add('hide');if(ctrl)ctrl.classList.remove('hide');
+  if(!ren3D)init3D();resize3D();
+  msd3Dt=stepData.t;msd3Dy=stepData.y;msd3DTend=stepData.t[stepData.t.length-1]||10;
+  const maxAbs=Math.max(...msd3Dy.map(Math.abs),1e-6);
+  msd3DScale=Math.min(2.5/maxAbs,3);
+  msd3DElapsed=0;msd3DLastTs=null;msd3DPaused=false;
+  $('msd3DPlayBtn').textContent='\u23f8';
+  if(!msd3DReq)msd3DReq=requestAnimationFrame(anim3D);
+}
+
+function anim3D(ts){
+  msd3DReq=null;
+  if(!msd3Dt||curTab!=='3d')return;
+  if(!msd3DPaused){if(msd3DLastTs!==null)msd3DElapsed+=(ts-msd3DLastTs)/1000*msd3DSpd;msd3DLastTs=ts;}
+  const t=msd3DElapsed%msd3DTend;
+  const fi=t/msd3DTend*(msd3Dt.length-1);
+  const i0=Math.min(Math.floor(fi),msd3Dt.length-2),a=fi-i0;
+  const y=msd3Dy[i0]*(1-a)+msd3Dy[Math.min(i0+1,msd3Dy.length-1)]*a;
+  setMassPos(EQ_X+y*msd3DScale);
+  const te=$('msd3DTime');if(te)te.textContent=t.toFixed(2)+'s / '+msd3DTend.toFixed(1)+'s';
+  const bar=$('msd3DBar');if(bar)bar.style.width=(t/msd3DTend*100)+'%';
+  ren3D.render(scene3D,cam3D);
+  msd3DReq=requestAnimationFrame(anim3D);
+}
+
+function resize3D(){if(!ren3D)return;const el=$('w3D'),w=el.clientWidth,h=el.clientHeight;if(w<1||h<1)return;cam3D.aspect=w/h;cam3D.updateProjectionMatrix();ren3D.setSize(w,h);}
+function msd3DToggle(){msd3DPaused=!msd3DPaused;$('msd3DPlayBtn').textContent=msd3DPaused?'\u25b6':'\u23f8';if(!msd3DPaused){msd3DLastTs=null;if(!msd3DReq)msd3DReq=requestAnimationFrame(anim3D);}}
+function msd3DRestart(){msd3DElapsed=0;msd3DLastTs=null;msd3DPaused=false;$('msd3DPlayBtn').textContent='\u23f8';if(!msd3DReq)msd3DReq=requestAnimationFrame(anim3D);}
+window.addEventListener('resize',()=>{setTimeout(resize3D,100);});
 
 // Attach input listeners
 function attachListeners(){

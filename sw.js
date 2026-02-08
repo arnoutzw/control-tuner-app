@@ -1,10 +1,11 @@
-const CACHE_NAME = 'ctrl-tuner-v3';
+const CACHE_NAME = 'ctrl-tuner-v4';
 const ASSETS = [
   './',
   './index.html',
   './mimo.html',
   './manifest.json',
-  'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'
 ];
 
 self.addEventListener('install', e => {
