@@ -146,15 +146,15 @@ header .sub{font-size:11px;color:var(--t2)}
 </aside>
 <main class="plot-area">
 <div class="tabs">
-<button class="tab act" data-tab="sim" onclick="setTab('sim',this)">Simulator</button>
-<button class="tab" data-tab="bode" onclick="setTab('bode',this)">Bode Plot</button>
+<button class="tab act" data-tab="bode" onclick="setTab('bode',this)">Bode Plot</button>
+<button class="tab" data-tab="sim" onclick="setTab('sim',this)">Simulator</button>
 <button class="tab" data-tab="3d" onclick="setTab('3d',this)">3D View</button>
 </div>
 <div class="mbar" id="mbar"></div>
 <div class="charts">
-<div class="chwrap" id="wSim"><canvas id="cSim"></canvas></div>
-<div class="chwrap hide" id="wMag"><canvas id="cMag"></canvas></div>
-<div class="chwrap hide" id="wPhase"><canvas id="cPhase"></canvas></div>
+<div class="chwrap" id="wMag"><canvas id="cMag"></canvas></div>
+<div class="chwrap" id="wPhase"><canvas id="cPhase"></canvas></div>
+<div class="chwrap hide" id="wSim"><canvas id="cSim"></canvas></div>
 <div class="chwrap hide" id="w3D">
 <div id="w3DSplit">
 <div id="w3DScene">
@@ -484,7 +484,7 @@ function updCharts(sys){
   });
 
   // 3D MSD visualization
-  if(curTab==='3d')upd3D(stepData);
+  if(curTab==='3d')upd3D(simData);
 }
 
 function scatterOpts(xLab,yLab,logX,unstable){
@@ -530,7 +530,7 @@ function met(l,v,c){return`<div class="met"><span class="met-l">${l}</span><span
 
 /* ========== UI LOGIC ========== */
 const $=id=>document.getElementById(id);
-let curTab='sim',updTimer,lastStepData=null;
+let curTab='bode',updTimer,lastStepData=null;
 
 function tP(h){
   const b=h.nextElementSibling;
@@ -626,7 +626,7 @@ function updFltUI(i){
 
 /* ========== 3D MSD VISUALIZATION ========== */
 let scene3D,cam3D,ren3D,mass3D,spring3D,dpCyl3D,dpRod3D;
-let msd3Dt=null,msd3Dy=null,msd3DScale=1,msd3DElapsed=0,msd3DLastTs=null,msd3DPaused=false,msd3DReq=null,msd3DSpd=1,msd3DTend=10;
+let msd3Dt=null,msd3Dy=null,msd3Du=null,msd3DScale=1,msd3DElapsed=0,msd3DLastTs=null,msd3DPaused=false,msd3DReq=null,msd3DSpd=1,msd3DTend=10;
 const WALL_X=-4,EQ_X=0,SP_Y=0.8,DP_Y=-0.1;
 let orb={drag:false,px:0,py:0,th:0,ph:0.28,r:9.5};
 
@@ -733,7 +733,7 @@ function updSpring(mx){
 function updDamper(mx){const s=WALL_X+0.2,len=Math.max(mx-0.6-s,0.2);dpRod3D.scale.y=len/3;dpRod3D.position.set(s+len/2,DP_Y,0);}
 function setMassPos(mx){mass3D.position.x=mx;updSpring(mx);updDamper(mx);const a=scene3D.getObjectByName('forceArrow');if(a)a.position.x=mx+0.7;}
 
-function upd3D(stepData){
+function upd3D(simD){
   const isMSD=$('plantModel').value==='msd';
   const msg=$('msd3DMsg'),ctrl=$('msd3DCtrl'),chartEl=$('w3DChart');
   if(!isMSD){
@@ -746,18 +746,18 @@ function upd3D(stepData){
   if(msg)msg.classList.add('hide');if(ctrl)ctrl.classList.remove('hide');
   if(chartEl)chartEl.style.display='';
   if(!ren3D)init3D();resize3D();
-  msd3Dt=stepData.t;msd3Dy=stepData.y;msd3DTend=stepData.t[stepData.t.length-1]||10;
+  msd3Dt=simD.t;msd3Dy=simD.y;msd3Du=simD.u;msd3DTend=simD.t[simD.t.length-1]||10;
   const maxAbs=Math.max(...msd3Dy.map(Math.abs),1e-6);
   msd3DScale=Math.min(2.5/maxAbs,3);
 
-  // 2D force + position chart
+  // 2D input + output chart
   mkChart('c3DPos',{
     type:'scatter',
     data:{datasets:[
-      {label:'Force F(t)',data:[{x:0,y:1},{x:msd3DTend,y:1}],showLine:true,borderColor:'#3b82f6',borderWidth:1.5,borderDash:[6,3],pointRadius:0,order:2,yAxisID:'y'},
-      {label:'Position y(t)',data:stepData.t.map((t,i)=>({x:t,y:stepData.y[i]})),showLine:true,borderColor:COLS.main,borderWidth:2,pointRadius:0,order:1,yAxisID:'y'},
-      {label:'Force now',data:[{x:0,y:1}],pointRadius:5,pointBackgroundColor:'#3b82f6',pointBorderColor:'#3b82f6',showLine:false,order:-1,yAxisID:'y'},
-      {label:'Position now',data:[{x:0,y:stepData.y[0]}],pointRadius:5,pointBackgroundColor:'#ef4444',pointBorderColor:'#ef4444',showLine:false,order:-1,yAxisID:'y'}
+      {label:'Input r(t)',data:simD.t.map((t,i)=>({x:t,y:simD.u[i]})),showLine:true,borderColor:'#3b82f6',borderWidth:1.5,borderDash:[6,3],pointRadius:0,order:2,yAxisID:'y'},
+      {label:'Output y(t)',data:simD.t.map((t,i)=>({x:t,y:simD.y[i]})),showLine:true,borderColor:COLS.main,borderWidth:2,pointRadius:0,order:1,yAxisID:'y'},
+      {label:'Input now',data:[{x:0,y:simD.u[0]}],pointRadius:5,pointBackgroundColor:'#3b82f6',pointBorderColor:'#3b82f6',showLine:false,order:-1,yAxisID:'y'},
+      {label:'Output now',data:[{x:0,y:simD.y[0]}],pointRadius:5,pointBackgroundColor:'#ef4444',pointBorderColor:'#ef4444',showLine:false,order:-1,yAxisID:'y'}
     ]},
     options:{
       responsive:true,maintainAspectRatio:false,animation:{duration:0},
@@ -789,7 +789,8 @@ function anim3D(ts){
   // Update 2D chart markers
   const ch=CS['c3DPos'];
   if(ch){
-    ch.data.datasets[2].data=[{x:t,y:1}];
+    const u=msd3Du?msd3Du[i0]*(1-a)+msd3Du[Math.min(i0+1,msd3Du.length-1)]*a:0;
+    ch.data.datasets[2].data=[{x:t,y:u}];
     ch.data.datasets[3].data=[{x:t,y:y}];
     ch.update('none');
     const mk=$('posMarker'),sx=ch.scales.x;
