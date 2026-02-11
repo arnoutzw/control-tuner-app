@@ -79,6 +79,21 @@ header .sub{font-size:11px;color:var(--t2)}
 #msd3DTime{color:var(--t2);font-size:11px;font-family:'SF Mono',Menlo,monospace;min-width:100px;text-align:center}
 #msd3DProgress{width:120px;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden}
 #msd3DBar{height:100%;background:var(--acc);width:0;transition:none}
+#rnBtn{background:var(--bg2);border:1px solid var(--brd);color:var(--t2);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;transition:all .15s;font-weight:500}
+#rnBtn:hover{color:var(--t0);border-color:var(--t2)}
+#rnOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center}
+#rnOverlay.show{display:flex}
+#rnModal{background:var(--bg1);border:1px solid var(--brd);border-radius:10px;max-width:520px;width:90%;max-height:80vh;overflow-y:auto;padding:20px 24px;box-shadow:0 16px 48px rgba(0,0,0,.5)}
+#rnModal::-webkit-scrollbar{width:6px}
+#rnModal::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px}
+#rnModal h2{font-size:16px;color:var(--t0);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+#rnModal h2 button{background:none;border:none;color:var(--t2);cursor:pointer;font-size:18px;line-height:1}
+#rnModal h2 button:hover{color:var(--t0)}
+.rn-ver{margin-bottom:16px}
+.rn-ver h3{font-size:13px;color:var(--acc);font-weight:700;margin-bottom:4px}
+.rn-ver .rn-date{font-size:10px;color:var(--t2);margin-bottom:6px;font-family:'SF Mono',Menlo,monospace}
+.rn-ver ul{margin:0;padding-left:18px;list-style:disc}
+.rn-ver li{font-size:12px;color:var(--t1);margin-bottom:3px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -86,8 +101,39 @@ header .sub{font-size:11px;color:var(--t2)}
 <header>
 <svg viewBox="0 0 512 512"><rect width="512" height="512" rx="64" fill="#09090b"/><path d="M80 350Q160 350 200 200Q240 50 280 250Q320 400 400 180L430 180" stroke="#f59e0b" stroke-width="16" fill="none" stroke-linecap="round"/></svg>
 <div><h1>Control Loop Tuner</h1><div class="sub">PID + Filters &middot; Bode &amp; Time Response</div></div>
-<nav style="margin-left:auto;display:flex;gap:6px"><a href="index.html" style="font-size:12px;padding:4px 10px;border-radius:6px;text-decoration:none;color:#f59e0b;border:1px solid #f59e0b;font-weight:700">SISO</a><a href="mimo.html" style="font-size:12px;padding:4px 10px;border-radius:6px;text-decoration:none;color:#a1a1aa;border:1px solid #3f3f46;transition:all .15s" onmouseover="this.style.color='#f4f4f5';this.style.borderColor='#a1a1aa'" onmouseout="this.style.color='#a1a1aa';this.style.borderColor='#3f3f46'">MIMO</a></nav>
+<nav style="margin-left:auto;display:flex;gap:6px"><a href="index.html" style="font-size:12px;padding:4px 10px;border-radius:6px;text-decoration:none;color:#f59e0b;border:1px solid #f59e0b;font-weight:700">SISO</a><a href="mimo.html" style="font-size:12px;padding:4px 10px;border-radius:6px;text-decoration:none;color:#a1a1aa;border:1px solid #3f3f46;transition:all .15s" onmouseover="this.style.color='#f4f4f5';this.style.borderColor='#a1a1aa'" onmouseout="this.style.color='#a1a1aa';this.style.borderColor='#3f3f46'">MIMO</a><button id="rnBtn" onclick="$('rnOverlay').classList.add('show')">Release Notes</button></nav>
 </header>
+<div id="rnOverlay" onclick="if(event.target===this)this.classList.remove('show')">
+<div id="rnModal">
+<h2>Release Notes <button onclick="$('rnOverlay').classList.remove('show')">&times;</button></h2>
+<div class="rn-ver"><h3>v1.2 &mdash; Unified Simulator</h3><div class="rn-date">2026-02-11</div><ul>
+<li>Consolidated UI into two tabs: <b>Bode Plot</b> and <b>Simulator</b></li>
+<li>Side-by-side 3D scene and 2D time-domain chart in Simulator</li>
+<li>Input r(t) and Output y(t) plotted with animated time markers</li>
+<li>Supports all signal types: step, ramp, sine, square, sawtooth</li>
+<li>Open-loop or closed-loop response based on PID toggle state</li>
+<li>Chart title indicates Open Loop or Closed Loop mode</li>
+<li>Mass-Spring-Damper set as default plant model</li>
+</ul></div>
+<div class="rn-ver"><h3>v1.1 &mdash; 3D Mass-Spring-Damper</h3><div class="rn-date">2026-02-08</div><ul>
+<li>Interactive Three.js 3D visualization for MSD plant model</li>
+<li>Realistic helical spring, damper with piston, animated mass block</li>
+<li>Force arrow shows applied input in real-time</li>
+<li>Mouse orbit controls: drag to rotate, scroll to zoom</li>
+<li>Playback controls with adjustable speed</li>
+</ul></div>
+<div class="rn-ver"><h3>v1.0 &mdash; Initial Release</h3><div class="rn-date">2026-02-07</div><ul>
+<li>SISO and MIMO control loop tuner</li>
+<li>PID controller with configurable gains (Kp, Ki, Kd)</li>
+<li>Multiple plant models: custom TF, mass-spring-damper, DC motor, thermal</li>
+<li>Low-pass, high-pass, notch, and lead-lag filter support</li>
+<li>Bode magnitude and phase plots with stability metrics</li>
+<li>Gain margin, phase margin, bandwidth, and crossover frequency readouts</li>
+<li>Step and impulse response analysis</li>
+<li>PWA support for offline use</li>
+</ul></div>
+</div>
+</div>
 <div class="main">
 <aside class="sidebar">
 
