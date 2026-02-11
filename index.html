@@ -434,8 +434,11 @@ function updCharts(sys){
   const lMin=Math.log10(wMin),lMax=Math.log10(wMax);
   for(let i=0;i<nFreq;i++)freqs.push(Math.pow(10,lMin+i*(lMax-lMin)/(nFreq-1)));
 
-  // Closed-loop time responses
-  const ss=tf2ss(sys.cl.n,sys.cl.d);
+  // Use closed-loop if PID enabled, open-loop otherwise
+  const pidOn=$('pidTgl').classList.contains('on');
+  const sysTF=pidOn?sys.cl:sys.ol;
+  const loopLabel=pidOn?'Closed Loop':'Open Loop';
+  const ss=tf2ss(sysTF.n,sysTF.d);
   const stepData=simStep(ss,tEnd,nPts);lastStepData=stepData;
   const uFn=buildInputFn(),x0=parseX0();
   const simData=simCustom(ss,uFn,tEnd,nPts,x0);
@@ -472,7 +475,7 @@ function updCharts(sys){
   });
 
   // 3D MSD visualization
-  if(curTab==='3d')upd3D(simData);
+  if(curTab==='3d')upd3D(simData,loopLabel);
 }
 
 function scatterOpts(xLab,yLab,logX,unstable){
@@ -710,7 +713,7 @@ function updSpring(mx){
 function updDamper(mx){const s=WALL_X+0.2,len=Math.max(mx-0.6-s,0.2);dpRod3D.scale.y=len/3;dpRod3D.position.set(s+len/2,DP_Y,0);}
 function setMassPos(mx){mass3D.position.x=mx;updSpring(mx);updDamper(mx);const a=scene3D.getObjectByName('forceArrow');if(a)a.position.x=mx+0.7;}
 
-function upd3D(simD){
+function upd3D(simD,loopLabel){
   const isMSD=$('plantModel').value==='msd';
   const msg=$('msd3DMsg'),ctrl=$('msd3DCtrl'),chartEl=$('w3DChart');
   if(!isMSD){
@@ -738,7 +741,10 @@ function upd3D(simD){
     ]},
     options:{
       responsive:true,maintainAspectRatio:false,animation:{duration:0},
-      plugins:{legend:{display:true,labels:{color:'#a1a1aa',font:{size:10},boxWidth:12,padding:6},position:'top'}},
+      plugins:{
+        title:{display:true,text:(loopLabel||'Open Loop')+' Response',color:'#e4e4e7',font:{size:13}},
+        legend:{display:true,labels:{color:'#a1a1aa',font:{size:10},boxWidth:12,padding:6},position:'top'}
+      },
       scales:{
         x:{type:'linear',title:{display:true,text:'Time (s)',color:'#a1a1aa'},grid:{color:'#27272a'},ticks:{color:'#52525b'}},
         y:{type:'linear',title:{display:true,text:'Amplitude',color:'#a1a1aa'},grid:{color:'#27272a'},ticks:{color:'#52525b'}}
