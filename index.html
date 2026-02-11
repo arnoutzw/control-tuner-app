@@ -94,6 +94,7 @@ header .sub{font-size:11px;color:var(--t2)}
 .rn-ver .rn-date{font-size:10px;color:var(--t2);margin-bottom:6px;font-family:'SF Mono',Menlo,monospace}
 .rn-ver ul{margin:0;padding-left:18px;list-style:disc}
 .rn-ver li{font-size:12px;color:var(--t1);margin-bottom:3px;line-height:1.5}
+.rn-ver code{background:var(--bg2);padding:1px 5px;border-radius:3px;font-size:11px;color:var(--acc);font-family:'SF Mono',Menlo,monospace}
 </style>
 </head>
 <body>
@@ -107,30 +108,39 @@ header .sub{font-size:11px;color:var(--t2)}
 <div id="rnModal">
 <h2>Release Notes <button onclick="$('rnOverlay').classList.remove('show')">&times;</button></h2>
 <div class="rn-ver"><h3>v1.2 &mdash; Unified Simulator</h3><div class="rn-date">2026-02-11</div><ul>
-<li>Consolidated UI into two tabs: <b>Bode Plot</b> and <b>Simulator</b></li>
-<li>Side-by-side 3D scene and 2D time-domain chart in Simulator</li>
-<li>Input r(t) and Output y(t) plotted with animated time markers</li>
-<li>Supports all signal types: step, ramp, sine, square, sawtooth</li>
-<li>Open-loop or closed-loop response based on PID toggle state</li>
-<li>Chart title indicates Open Loop or Closed Loop mode</li>
-<li>Mass-Spring-Damper set as default plant model</li>
+<li>Consolidated Step Response, Impulse Response, old Simulator, and 3D View into two clean tabs: <b>Bode Plot</b> and <b>Simulator</b></li>
+<li>Simulator shows side-by-side 3D scene (<code>w3DScene</code>) and 2D Chart.js time-domain plot (<code>w3DChart</code>) in a flex layout</li>
+<li>2D chart plots both <b>Input r(t)</b> (dashed blue) and <b>Output y(t)</b> (solid amber) with animated marker dots and red time indicator synced to 3D animation</li>
+<li>Simulator uses <code>simCustom()</code> with <code>buildInputFn()</code> &mdash; supports step, ramp, sine, square, and sawtooth signals from the GUI signal selector</li>
+<li>Mass-Spring-Damper (G(s) = 1/(ms&sup2;+cs+k)) set as default plant model; PID starts disabled for open-loop behavior</li>
+</ul>
+<p style="font-size:11px;color:var(--t2);margin:6px 0 4px;font-weight:600">Bug fixes:</p><ul>
+<li><b>Bode/Simulator DC gain mismatch</b>: Bode plotted open-loop <code>sys.ol</code> but Simulator used closed-loop <code>sys.cl</code>, causing e.g. MSD 0&thinsp;dB (gain=1) in Bode but 0.5&thinsp;m steady-state in Simulator. Fixed <code>updCharts()</code> to select <code>sys.ol</code> or <code>sys.cl</code> based on PID toggle state</li>
+<li><b>3D view ignored signal type</b>: Previously always used <code>simStep()</code> unit step regardless of GUI settings. Changed to use <code>simCustom()</code> data matching the selected input signal and PID/filter configuration</li>
+<li>Chart title now dynamically shows <b>&ldquo;Open Loop Response&rdquo;</b> or <b>&ldquo;Closed Loop Response&rdquo;</b> so the active mode is always visible</li>
 </ul></div>
 <div class="rn-ver"><h3>v1.1 &mdash; 3D Mass-Spring-Damper</h3><div class="rn-date">2026-02-08</div><ul>
-<li>Interactive Three.js 3D visualization for MSD plant model</li>
-<li>Realistic helical spring, damper with piston, animated mass block</li>
-<li>Force arrow shows applied input in real-time</li>
-<li>Mouse orbit controls: drag to rotate, scroll to zoom</li>
-<li>Playback controls with adjustable speed</li>
+<li>Added <code>init3D()</code>: creates Three.js r128 WebGL scene with wall, mass block (amber), force arrow (red), damper with piston (blue), and ground plane with grid</li>
+<li>Spring rendered as 3D helical coil via <code>helixCurve()</code> using <code>TubeGeometry</code> + <code>CatmullRomCurve3</code>; dynamically rebuilt by <code>updSpring(mx)</code> as mass moves</li>
+<li>Damper piston rod scales/repositions via <code>updDamper(mx)</code>; force arrow length tracks instantaneous input force</li>
+<li>RK4-integrated time response drives animation: <code>anim3D()</code> interpolates y(t) and u(t) arrays at current playback time, calls <code>setMassPos()</code></li>
+<li>Custom mouse orbit controls (drag to rotate, scroll to zoom) &mdash; no OrbitControls dependency</li>
+<li>Playback controls: play/pause, restart, speed selector (0.25&times;&ndash;4&times;), progress bar with elapsed time readout</li>
+<li>Metrics bar shows m, c, k, &omega;<sub>n</sub>, and &zeta; when Simulator tab is active</li>
+<li>Fallback message when a non-MSD plant model is selected</li>
 </ul></div>
 <div class="rn-ver"><h3>v1.0 &mdash; Initial Release</h3><div class="rn-date">2026-02-07</div><ul>
-<li>SISO and MIMO control loop tuner</li>
-<li>PID controller with configurable gains (Kp, Ki, Kd)</li>
-<li>Multiple plant models: custom TF, mass-spring-damper, DC motor, thermal</li>
-<li>Low-pass, high-pass, notch, and lead-lag filter support</li>
-<li>Bode magnitude and phase plots with stability metrics</li>
-<li>Gain margin, phase margin, bandwidth, and crossover frequency readouts</li>
-<li>Step and impulse response analysis</li>
-<li>PWA support for offline use</li>
+<li>SISO control loop tuner: <code>buildSystem()</code> constructs open-loop L(s) = C(s)&middot;G(s)&middot;Filters and closed-loop CL(s) = L/(1+L)</li>
+<li>MIMO state-space tuner on separate page (<code>mimo.html</code>) with A, B, C, D matrix input</li>
+<li>PID controller (<code>buildPID()</code>) with Kp, Ki, Kd; derivative filter coefficient N</li>
+<li>Plant models: custom transfer function (numerator/denominator coefficients), mass-spring-damper, DC motor, thermal system</li>
+<li>Filter chain: low-pass, high-pass, notch, and lead-lag &mdash; each independently togglable</li>
+<li>Bode plots via <code>freqResp()</code>: log-spaced frequency sweep, magnitude (dB) and phase (&deg;) on separate charts</li>
+<li>Stability metrics via <code>bodeMetrics()</code>: gain margin, phase margin, gain/phase crossover frequencies, bandwidth</li>
+<li>Time-domain simulation: <code>tf2ss()</code> state-space conversion, <code>simStep()</code> / <code>simCustom()</code> with RK4 integration</li>
+<li>Polynomial math utilities: <code>polyMul()</code>, <code>polyAdd()</code>, <code>polyEval()</code> for transfer function algebra</li>
+<li>Sidebar panel UI with collapsible sections, toggle switches, real-time parameter updates via <code>sched()</code> debounce</li>
+<li>PWA: service worker (<code>sw.js</code>) with cache-first strategy; <code>manifest.json</code> for installability</li>
 </ul></div>
 </div>
 </div>
