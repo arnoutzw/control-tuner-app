@@ -158,7 +158,8 @@ header .sub{font-size:11px;color:var(--t2)}
 <!-- Time Simulator -->
 <div class="pnl"><div class="pnl-h" onclick="tP(this)"><h3>Time Simulator</h3><span class="arr">&#9660;</span></div>
 <div class="pnl-b">
-<div class="pr"><label>Signal</label><select id="simSigType" onchange="updSimUI();sched()"><option value="step">Step</option><option value="ramp">Ramp</option><option value="sine">Sine</option><option value="square">Square</option><option value="sawtooth">Sawtooth</option></select></div>
+<div class="pr"><label>Mode</label><select id="simLoopMode" onchange="updLoopMode();sched()"><option value="ol">Open Loop</option><option value="cl">Closed Loop</option></select></div>
+<div class="pr"><label id="lblSigType">Force</label><select id="simSigType" onchange="updSimUI();sched()"><option value="step">Step</option><option value="ramp">Ramp</option><option value="sine">Sine</option><option value="square">Square</option><option value="sawtooth">Sawtooth</option></select></div>
 <div class="pr"><label id="lblSigAmp">Amplitude</label><input type="number" id="simSigAmp" value="1" step="0.1"></div>
 <div class="pr" id="rowSigFreq" style="display:none"><label>Freq (Hz)</label><input type="number" id="simSigFreq" value="1" min="0.001" step="0.1"></div>
 <div class="pr" id="rowSigDelay"><label>Delay (s)</label><input type="number" id="simSigDelay" value="0" min="0" step="0.1"></div>
@@ -490,10 +491,10 @@ function updCharts(sys){
   const lMin=Math.log10(wMin),lMax=Math.log10(wMax);
   for(let i=0;i<nFreq;i++)freqs.push(Math.pow(10,lMin+i*(lMax-lMin)/(nFreq-1)));
 
-  // Use closed-loop if PID enabled, open-loop otherwise
-  const pidOn=$('pidTgl').classList.contains('on');
-  const sysTF=pidOn?sys.cl:sys.ol;
-  const loopLabel=pidOn?'Closed Loop':'Open Loop';
+  // Use closed-loop or open-loop based on mode selector
+  const isCL=$('simLoopMode').value==='cl';
+  const sysTF=isCL?sys.cl:sys.ol;
+  const loopLabel=isCL?'Closed Loop':'Open Loop';
   const ss=tf2ss(sysTF.n,sysTF.d);
   const stepData=simStep(ss,tEnd,nPts);lastStepData=stepData;
   const uFn=buildInputFn(),x0=parseX0();
@@ -574,7 +575,15 @@ function tP(h){
   b.classList.toggle('hide');
   h.classList.toggle('collapsed');
 }
-function tglS(el){el.classList.toggle('on');sched();}
+function tglS(el){
+  el.classList.toggle('on');
+  // Keep loop mode in sync when PID toggle is changed directly
+  if(el.id==='pidTgl'){
+    $('simLoopMode').value=el.classList.contains('on')?'cl':'ol';
+    updSimUI();
+  }
+  sched();
+}
 function updPlantUI(){
   const model=$('plantModel').value;
   const isGen=model==='generic',isMSD=model==='msd',isRL=model==='rl',isRLC=model==='rlc';
@@ -590,6 +599,7 @@ function updPlantUI(){
   $('rowR').style.display=isRL||isRLC?'flex':'none';
   $('rowL').style.display=isRL||isRLC?'flex':'none';
   $('rowCap').style.display=isRLC?'flex':'none';
+  updSimUI();
 }
 function setTab(tab,btn){
   curTab=tab;
@@ -644,13 +654,25 @@ function parseX0(){
   if(!s||s==='0')return[];
   return s.split(',').map(v=>+v.trim()).filter(v=>isFinite(v));
 }
+function updLoopMode(){
+  const cl=$('simLoopMode').value==='cl';
+  const pidEl=$('pidTgl');
+  // Sync PID toggle with loop mode
+  if(cl&&!pidEl.classList.contains('on'))pidEl.classList.add('on');
+  if(!cl&&pidEl.classList.contains('on'))pidEl.classList.remove('on');
+  updSimUI();
+}
 function updSimUI(){
   const t=$('simSigType').value;
+  const cl=$('simLoopMode').value==='cl';
   const hasFreq=t==='sine'||t==='square'||t==='sawtooth';
   $('rowSigFreq').style.display=hasFreq?'flex':'none';
   $('rowSigDelay').style.display=!hasFreq?'flex':'none';
   $('rowSigDuty').style.display=t==='square'?'flex':'none';
-  $('lblSigAmp').textContent=t==='ramp'?'Slope (/s)':'Amplitude';
+  $('lblSigType').textContent=cl?'Reference':'Force';
+  const isMSD=$('plantModel').value==='msd';
+  if(t==='ramp')$('lblSigAmp').textContent=cl?(isMSD?'Slope (m/s)':'Slope (/s)'):(isMSD?'Slope (N/s)':'Slope (/s)');
+  else $('lblSigAmp').textContent=cl?(isMSD?'Position (m)':'Amplitude'):(isMSD?'Force (N)':'Amplitude');
 }
 function updFltUI(i){
   const idx=FTYPES.indexOf($('fType'+i).value);
@@ -786,14 +808,19 @@ function upd3D(simD,loopLabel){
   const maxAbs=Math.max(...msd3Dy.map(Math.abs),1e-6);
   msd3DScale=Math.min(2.5/maxAbs,3);
 
-  // 2D input + output chart
+  // 2D input + output chart — labels depend on loop mode and plant
+  const cl3D=$('simLoopMode').value==='cl';
+  const msd3DPlant=$('plantModel').value==='msd';
+  const inLabel=cl3D?(msd3DPlant?'Reference position (m)':'Reference r(t)'):(msd3DPlant?'Force (N)':'Input u(t)');
+  const outLabel=cl3D?(msd3DPlant?'Position (m)':'Output y(t)'):(msd3DPlant?'Position (m)':'Output y(t)');
+  const yAxis=cl3D?(msd3DPlant?'Position (m)':'Amplitude'):(msd3DPlant?'Force (N) / Position (m)':'Amplitude');
   mkChart('c3DPos',{
     type:'scatter',
     data:{datasets:[
-      {label:'Input r(t)',data:simD.t.map((t,i)=>({x:t,y:simD.u[i]})),showLine:true,borderColor:'#3b82f6',borderWidth:1.5,borderDash:[6,3],pointRadius:0,order:2,yAxisID:'y'},
-      {label:'Output y(t)',data:simD.t.map((t,i)=>({x:t,y:simD.y[i]})),showLine:true,borderColor:COLS.main,borderWidth:2,pointRadius:0,order:1,yAxisID:'y'},
-      {label:'Input now',data:[{x:0,y:simD.u[0]}],pointRadius:5,pointBackgroundColor:'#3b82f6',pointBorderColor:'#3b82f6',showLine:false,order:-1,yAxisID:'y'},
-      {label:'Output now',data:[{x:0,y:simD.y[0]}],pointRadius:5,pointBackgroundColor:'#ef4444',pointBorderColor:'#ef4444',showLine:false,order:-1,yAxisID:'y'}
+      {label:inLabel,data:simD.t.map((t,i)=>({x:t,y:simD.u[i]})),showLine:true,borderColor:'#3b82f6',borderWidth:1.5,borderDash:[6,3],pointRadius:0,order:2,yAxisID:'y'},
+      {label:outLabel,data:simD.t.map((t,i)=>({x:t,y:simD.y[i]})),showLine:true,borderColor:COLS.main,borderWidth:2,pointRadius:0,order:1,yAxisID:'y'},
+      {label:inLabel+' now',data:[{x:0,y:simD.u[0]}],pointRadius:5,pointBackgroundColor:'#3b82f6',pointBorderColor:'#3b82f6',showLine:false,order:-1,yAxisID:'y'},
+      {label:outLabel+' now',data:[{x:0,y:simD.y[0]}],pointRadius:5,pointBackgroundColor:'#ef4444',pointBorderColor:'#ef4444',showLine:false,order:-1,yAxisID:'y'}
     ]},
     options:{
       responsive:true,maintainAspectRatio:false,animation:{duration:0},
@@ -803,7 +830,7 @@ function upd3D(simD,loopLabel){
       },
       scales:{
         x:{type:'linear',title:{display:true,text:'Time (s)',color:'#a1a1aa'},grid:{color:'#27272a'},ticks:{color:'#52525b'}},
-        y:{type:'linear',title:{display:true,text:'Amplitude',color:'#a1a1aa'},grid:{color:'#27272a'},ticks:{color:'#52525b'}}
+        y:{type:'linear',title:{display:true,text:yAxis,color:'#a1a1aa'},grid:{color:'#27272a'},ticks:{color:'#52525b'}}
       }
     }
   });
