@@ -114,7 +114,7 @@ header .sub{font-size:11px;color:var(--t2)}
 <!-- Plant -->
 <div class="pnl"><div class="pnl-h" onclick="tP(this)"><h3>Plant Model G(s)</h3><span class="arr">&#9660;</span></div>
 <div class="pnl-b">
-<div class="pr"><label>Model</label><select id="plantModel" onchange="updPlantUI();sched()"><option value="generic">Generic</option><option value="msd">Mass-Spring-Damper</option><option value="rl">RL Circuit</option><option value="rlc">RLC Circuit</option></select></div>
+<div class="pr"><label>Model</label><select id="plantModel" onchange="updPlantUI();sched()"><option value="generic">Generic</option><option value="msd" selected>Mass-Spring-Damper</option><option value="rl">RL Circuit</option><option value="rlc">RLC Circuit</option></select></div>
 <div class="pr" id="rowOrd"><label>Order</label><select id="plantOrd" onchange="updPlantUI();sched()"><option value="1">1st Order</option><option value="2" selected>2nd Order</option></select></div>
 <div class="pr" id="rowK"><label>K</label><input type="number" id="plantK" value="1" step="0.1"></div>
 <div class="pr" id="rowTau" style="display:none"><label>&tau; (s)</label><input type="number" id="plantTau" value="1" min="0.001" step="0.1"></div>
@@ -131,7 +131,7 @@ header .sub{font-size:11px;color:var(--t2)}
 <!-- PID -->
 <div class="pnl"><div class="pnl-h" onclick="tP(this)"><h3>PID Controller C(s)</h3><span class="arr">&#9660;</span></div>
 <div class="pnl-b">
-<div class="tgl-row"><div class="tgl on" id="pidTgl" onclick="tglS(this)"></div><label>Enabled</label></div>
+<div class="tgl-row"><div class="tgl" id="pidTgl" onclick="tglS(this)"></div><label>Enabled</label></div>
 <div class="pr"><label>Kp</label><input type="number" id="pidKp" value="1" step="0.1"></div>
 <div class="pr"><label>fi (Hz)</label><input type="number" id="pidFi" value="0.08" min="0" step="0.01"></div>
 <div class="pr"><label>fd (Hz)</label><input type="number" id="pidFd" value="0.8" min="0" step="0.1"></div>
@@ -147,14 +147,12 @@ header .sub{font-size:11px;color:var(--t2)}
 <main class="plot-area">
 <div class="tabs">
 <button class="tab act" data-tab="bode" onclick="setTab('bode',this)">Bode Plot</button>
-<button class="tab" data-tab="sim" onclick="setTab('sim',this)">Simulator</button>
-<button class="tab" data-tab="3d" onclick="setTab('3d',this)">3D View</button>
+<button class="tab" data-tab="3d" onclick="setTab('3d',this)">Simulator</button>
 </div>
 <div class="mbar" id="mbar"></div>
 <div class="charts">
 <div class="chwrap" id="wMag"><canvas id="cMag"></canvas></div>
 <div class="chwrap" id="wPhase"><canvas id="cPhase"></canvas></div>
-<div class="chwrap hide" id="wSim"><canvas id="cSim"></canvas></div>
 <div class="chwrap hide" id="w3D">
 <div id="w3DSplit">
 <div id="w3DScene">
@@ -449,16 +447,6 @@ function updCharts(sys){
   const bm=bodeMetrics(freqs,fr.m,fr.ph);
   updMetrics(bm,simData);
 
-  // Simulator
-  mkChart('cSim',{
-    type:'scatter',
-    data:{datasets:[
-      {label:'Input r(t)',data:simData.t.map((t,i)=>({x:t,y:simData.u[i]})),showLine:true,borderColor:'#3b82f6',borderWidth:1,borderDash:[6,3],pointRadius:0,order:1},
-      {label:'Output y(t)',data:simData.t.map((t,i)=>({x:t,y:simData.y[i]})),showLine:true,borderColor:COLS.main,borderWidth:2,pointRadius:0,order:0}
-    ]},
-    options:scatterOpts('Time (s)','Amplitude',false,simData.unstable)
-  });
-
   // Bode Magnitude
   const TP=2*Math.PI;
   mkChart('cMag',{
@@ -501,17 +489,7 @@ function scatterOpts(xLab,yLab,logX,unstable){
 function updMetrics(bm,simData){
   const mb=$('mbar');
   let h='';
-  if(curTab==='sim'){
-    if(simData&&simData.unstable)h='<div class="met"><span class="met-v b">UNSTABLE</span></div>';
-    else if(simData){
-      const yv=simData.y.filter(v=>isFinite(v));
-      const pk=Math.max(...yv),mn=Math.min(...yv),fv=yv[yv.length-1],ufv=simData.u[simData.u.length-1];
-      h+=met('Peak',pk.toFixed(3),'');
-      h+=met('Min',mn.toFixed(3),'');
-      h+=met('Final',fv.toFixed(4),'');
-      h+=met('SS Err',(Math.abs(fv-ufv)).toFixed(4),Math.abs(fv-ufv)<.01?'g':Math.abs(fv-ufv)<.05?'w':'b');
-    }
-  }else if(curTab==='3d'){
+  if(curTab==='3d'){
     if($('plantModel').value==='msd'){
       const m=+$('plantM').value,c=+$('plantDamp').value,k=+$('plantSpK').value;
       const wn=Math.sqrt(k/m),zeta=c/(2*Math.sqrt(k*m));
@@ -558,7 +536,6 @@ function setTab(tab,btn){
   curTab=tab;
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('act'));
   btn.classList.add('act');
-  $('wSim').classList.toggle('hide',tab!=='sim');
   $('wMag').classList.toggle('hide',tab!=='bode');
   $('wPhase').classList.toggle('hide',tab!=='bode');
   $('w3D').classList.toggle('hide',tab!=='3d');
