@@ -483,13 +483,8 @@ function updCharts(sys){
     options:scatterOpts('Frequency (Hz)','Phase (\u00b0)',true)
   });
 
-  // 3D MSD visualization — simulate plant alone (no controller)
-  if(curTab==='3d'){
-    const g=plantTF();
-    const plantSS=tf2ss(g.n,g.d);
-    const plantStep=simStep(plantSS,tEnd,nPts);
-    upd3D(plantStep);
-  }
+  // 3D MSD visualization
+  if(curTab==='3d')upd3D(stepData);
 }
 
 function scatterOpts(xLab,yLab,logX,unstable){
