@@ -178,7 +178,7 @@ header .sub{font-size:11px;color:var(--t2)}
 <div class="pr" id="rowWn"><label>&omega;n (rad/s)</label><input type="number" id="plantWn" value="1" min="0.001" step="0.1"></div>
 <div class="pr" id="rowZeta"><label>&zeta;</label><input type="number" id="plantZeta" value="0.5" min="0" max="20" step="0.05"></div>
 <div class="pr" id="rowM" style="display:none"><label>m (kg)</label><input type="number" id="plantM" value="1" min="0.001" step="0.1"></div>
-<div class="pr" id="rowDamp" style="display:none"><label>c (Ns/m)</label><input type="number" id="plantDamp" value="0.5" min="0" step="0.1"></div>
+<div class="pr" id="rowDamp" style="display:none"><label>c (Ns/m)</label><input type="number" id="plantDamp" value="1" min="0" step="0.1"></div>
 <div class="pr" id="rowSpK" style="display:none"><label>k (N/m)</label><input type="number" id="plantSpK" value="1" min="0.001" step="0.1"></div>
 <div class="pr" id="rowR" style="display:none"><label>R (&Omega;)</label><input type="number" id="plantR" value="100" min="0.001" step="1"></div>
 <div class="pr" id="rowL" style="display:none"><label>L (H)</label><input type="number" id="plantL" value="0.1" min="0.001" step="0.01"></div>
@@ -189,7 +189,7 @@ header .sub{font-size:11px;color:var(--t2)}
 <div class="pnl"><div class="pnl-h" onclick="tP(this)"><h3>PID Controller C(s)</h3><span class="arr">&#9660;</span></div>
 <div class="pnl-b">
 <div class="tgl-row"><div class="tgl" id="pidTgl" onclick="tglS(this)"></div><label>Enabled</label></div>
-<div class="pr"><label>Kp</label><input type="number" id="pidKp" value="1" step="0.1"></div>
+<div class="pr"><label>Kp</label><input type="number" id="pidKp" value="5" step="0.1"></div>
 <div class="pr"><label>fi (Hz)</label><input type="number" id="pidFi" value="0.08" min="0" step="0.01"></div>
 <div class="pr"><label>fd (Hz)</label><input type="number" id="pidFd" value="0.8" min="0" step="0.1"></div>
 <div class="pr"><label>T_f (s)</label><input type="number" id="pidTf" value="0.01" min="0.001" step="0.01"></div>
@@ -632,7 +632,7 @@ function buildFilters(){
   let h='';
   for(let i=0;i<5;i++){
     h+=`<div class="flt"><div class="flt-h" onclick="tFlt(${i})">
-      <div class="tgl${i===0?' on':''}" id="fTgl${i}" onclick="event.stopPropagation();tglS(this)"></div>
+      <div class="tgl" id="fTgl${i}" onclick="event.stopPropagation();tglS(this)"></div>
       <span>Filter ${i+1}</span><span class="arr" id="fArr${i}" style="font-size:10px;color:var(--t2)">&#9660;</span>
     </div><div class="flt-b${i>0?' hide':''}" id="fBody${i}">
       <div class="pr"><label>Type</label><select id="fType${i}" onchange="updFltUI(${i});sched()">
