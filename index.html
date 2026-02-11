@@ -750,15 +750,23 @@ function upd3D(stepData){
   const maxAbs=Math.max(...msd3Dy.map(Math.abs),1e-6);
   msd3DScale=Math.min(2.5/maxAbs,3);
 
-  // 2D position chart
+  // 2D force + position chart
   mkChart('c3DPos',{
     type:'scatter',
     data:{datasets:[
-      {label:'Reference',data:[{x:0,y:1},{x:msd3DTend,y:1}],showLine:true,borderColor:COLS.ref,borderWidth:1,borderDash:[6,3],pointRadius:0,order:2},
-      {label:'Position y(t)',data:stepData.t.map((t,i)=>({x:t,y:stepData.y[i]})),showLine:true,borderColor:COLS.main,borderWidth:2,pointRadius:0,order:0},
-      {label:'Now',data:[{x:0,y:stepData.y[0]}],pointRadius:6,pointBackgroundColor:'#ef4444',pointBorderColor:'#ef4444',showLine:false,order:-1}
+      {label:'Force F(t)',data:[{x:0,y:1},{x:msd3DTend,y:1}],showLine:true,borderColor:'#3b82f6',borderWidth:1.5,borderDash:[6,3],pointRadius:0,order:2,yAxisID:'y'},
+      {label:'Position y(t)',data:stepData.t.map((t,i)=>({x:t,y:stepData.y[i]})),showLine:true,borderColor:COLS.main,borderWidth:2,pointRadius:0,order:1,yAxisID:'y'},
+      {label:'Force now',data:[{x:0,y:1}],pointRadius:5,pointBackgroundColor:'#3b82f6',pointBorderColor:'#3b82f6',showLine:false,order:-1,yAxisID:'y'},
+      {label:'Position now',data:[{x:0,y:stepData.y[0]}],pointRadius:5,pointBackgroundColor:'#ef4444',pointBorderColor:'#ef4444',showLine:false,order:-1,yAxisID:'y'}
     ]},
-    options:scatterOpts('Time (s)','Position',false,stepData.unstable)
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:{duration:0},
+      plugins:{legend:{display:true,labels:{color:'#a1a1aa',font:{size:10},boxWidth:12,padding:6},position:'top'}},
+      scales:{
+        x:{type:'linear',title:{display:true,text:'Time (s)',color:'#a1a1aa'},grid:{color:'#27272a'},ticks:{color:'#52525b'}},
+        y:{type:'linear',title:{display:true,text:'Amplitude',color:'#a1a1aa'},grid:{color:'#27272a'},ticks:{color:'#52525b'}}
+      }
+    }
   });
   $('posMarker').style.display='block';
 
@@ -778,10 +786,11 @@ function anim3D(ts){
   setMassPos(EQ_X+y*msd3DScale);
   const te=$('msd3DTime');if(te)te.textContent=t.toFixed(2)+'s / '+msd3DTend.toFixed(1)+'s';
   const bar=$('msd3DBar');if(bar)bar.style.width=(t/msd3DTend*100)+'%';
-  // Update 2D chart marker
+  // Update 2D chart markers
   const ch=CS['c3DPos'];
   if(ch){
-    ch.data.datasets[2].data=[{x:t,y:y}];
+    ch.data.datasets[2].data=[{x:t,y:1}];
+    ch.data.datasets[3].data=[{x:t,y:y}];
     ch.update('none');
     const mk=$('posMarker'),sx=ch.scales.x;
     if(mk&&sx){const px=sx.getPixelForValue(t);mk.style.left=px+'px';}
